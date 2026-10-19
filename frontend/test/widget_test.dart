@@ -11,7 +11,7 @@ void main() {
       return http.Response('{"status":"ok","service":"TrackTalk API"}', 200);
     });
     await http.runWithClient(() async {
-      await tester.pumpWidget(const TrackTalkApp());
+      await tester.pumpWidget(const MaterialApp(home: ConnectionPage()));
       await tester.tap(find.text('Check connection'));
       await tester.pumpAndSettle();
       expect(find.text('Connected to TrackTalk API.'), findsOneWidget);
@@ -23,7 +23,7 @@ void main() {
   testWidgets('allows retry after a failed request', (tester) async {
     final client = MockClient((_) async => http.Response('Unavailable', 503));
     await http.runWithClient(() async {
-      await tester.pumpWidget(const TrackTalkApp());
+      await tester.pumpWidget(const MaterialApp(home: ConnectionPage()));
       await tester.tap(find.text('Check connection'));
       await tester.pumpAndSettle();
       expect(

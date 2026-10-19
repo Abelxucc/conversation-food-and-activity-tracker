@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'Login.dart';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -22,7 +24,7 @@ class TrackTalkApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF287565)),
         useMaterial3: true,
       ),
-      home: const ConnectionPage(),
+      home: const LoginPage(),
     );
   }
 }
