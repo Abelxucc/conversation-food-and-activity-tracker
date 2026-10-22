@@ -1,14 +1,13 @@
 import 'dart:convert';
 
-import 'Login.dart';
+import 'LoginPage.dart';
+import 'ReSetPage.dart';
+import 'api_config.dart';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-const apiBaseUrl = String.fromEnvironment(
-  'API_BASE_URL',
-  defaultValue: 'http://127.0.0.1:8000',
-);
+final apiBaseUrl = ApiConfig.baseUrl;
 
 void main() => runApp(const TrackTalkApp());
 
@@ -25,6 +24,22 @@ class TrackTalkApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: const LoginPage(),
+      routes: {
+        '/reset-password': (context) => ResetPage(
+          initialEmail:
+              ModalRoute.of(context)?.settings.arguments as String? ?? '',
+        ),
+      },
+      onGenerateRoute: (settings) {
+        final parts = Uri.tryParse(settings.name ?? '')?.pathSegments ?? [];
+        if (parts.length == 3 && parts.first == 'reset-password') {
+          return MaterialPageRoute<void>(
+            settings: settings,
+            builder: (_) => ResetPage(uid: parts[1], token: parts[2]),
+          );
+        }
+        return null;
+      },
     );
   }
 }
@@ -115,7 +130,7 @@ class _ConnectionPageState extends State<ConnectionPage> {
                     const SizedBox(height: 12),
                     Text(_message, key: const Key('connection-status')),
                     const SizedBox(height: 8),
-                    const SelectableText('$apiBaseUrl/api/health/'),
+                    SelectableText('$apiBaseUrl/api/health/'),
                     const SizedBox(height: 24),
                     FilledButton.icon(
                       onPressed: _loading ? null : _checkConnection,

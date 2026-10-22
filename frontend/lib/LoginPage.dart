@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'auth_style.dart';
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -11,12 +13,9 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  static const _green = Color(0xFF009B58);
-  static const _background = Color(0xFFF0F3E7);
-  static const _serif = TextStyle(
-    fontFamily: 'Georgia',
-    fontFamilyFallback: ['serif'],
-  );
+  static const _green = AuthStyle.green;
+  static const _background = AuthStyle.background;
+  static const _serif = AuthStyle.serif;
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -43,29 +42,8 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  InputDecoration _decoration(String hint, {Widget? suffixIcon}) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: const TextStyle(color: Color(0xFF525252), fontSize: 16),
-      filled: true,
-      fillColor: Colors.white,
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      suffixIcon: suffixIcon,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(9),
-        borderSide: const BorderSide(color: Color(0xFFD5D5D5)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(9),
-        borderSide: const BorderSide(color: Color(0xFFD5D5D5)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(9),
-        borderSide: const BorderSide(color: _green, width: 2),
-      ),
-    );
-  }
+  InputDecoration _decoration(String hint, {Widget? suffixIcon}) =>
+      AuthStyle.inputDecoration(hint, suffixIcon: suffixIcon);
 
   @override
   Widget build(BuildContext context) {
@@ -178,7 +156,10 @@ class _LoginPageState extends State<LoginPage> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: () => _comingSoon('Password reset'),
+                          onPressed: () => Navigator.of(context).pushNamed(
+                            '/reset-password',
+                            arguments: _emailController.text.trim(),
+                          ),
                           style: TextButton.styleFrom(
                             foregroundColor: _green,
                             textStyle: _serif.copyWith(fontSize: 15),

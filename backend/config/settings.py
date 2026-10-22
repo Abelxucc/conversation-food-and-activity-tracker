@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-bcq@!*&h^st+h(scd-!s4#vzae3s2=-d&vhc3nle3v5*_zk2#e
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', '10.0.2.2']
 
 
 # Application definition
@@ -130,3 +130,10 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
 ]
+
+
+# Local password-recovery demo: print emails to the terminal, never send them.
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'TrackTalk <noreply@tracktalk.local>'
+PASSWORD_RESET_TIMEOUT = 30 * 60
+PASSWORD_RESET_FRONTEND_URL = 'http://localhost:5173'
