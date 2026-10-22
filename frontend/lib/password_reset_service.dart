@@ -13,20 +13,8 @@ class PasswordResetException implements Exception {
 class PasswordResetService {
   const PasswordResetService();
 
-  Future<void> requestLink(String email) =>
+  Future<void> requestReset(String email) =>
       _post('/api/auth/password-reset/', {'email': email.trim()});
-
-  Future<void> confirm({
-    required String uid,
-    required String token,
-    required String password,
-    required String confirmation,
-  }) => _post('/api/auth/password-reset/confirm/', {
-    'uid': uid,
-    'token': token,
-    'new_password': password,
-    'confirm_password': confirmation,
-  });
 
   Future<void> _post(String path, Map<String, String> data) async {
     late http.Response response;
@@ -47,7 +35,7 @@ class PasswordResetService {
         'Could not connect. Please try again.',
       );
     }
-    if (response.statusCode == 200) return;
+    if (response.statusCode == 202) return;
     if (response.statusCode == 429) {
       throw const PasswordResetException(
         'Too many attempts. Please wait a minute and try again.',

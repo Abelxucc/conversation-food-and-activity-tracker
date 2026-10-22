@@ -132,8 +132,6 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 
-# Local password-recovery demo: print emails to the terminal, never send them.
+# Development email backend. Password recovery uses administrator requests.
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 DEFAULT_FROM_EMAIL = 'TrackTalk <noreply@tracktalk.local>'
-PASSWORD_RESET_TIMEOUT = 30 * 60
-PASSWORD_RESET_FRONTEND_URL = 'http://localhost:5173'

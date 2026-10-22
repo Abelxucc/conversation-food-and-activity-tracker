@@ -256,7 +256,10 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                           TextButton(
-                            onPressed: () => _comingSoon('Sign up'),
+                            onPressed: () => Navigator.of(context).pushNamed(
+                              '/register',
+                              arguments: _emailController.text.trim(),
+                            ),
                             style: TextButton.styleFrom(
                               foregroundColor: const Color(0xFF080C08),
                               textStyle: _serif.copyWith(

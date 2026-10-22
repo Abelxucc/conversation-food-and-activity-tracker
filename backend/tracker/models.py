@@ -1,4 +1,6 @@
+from django.conf import settings
 from django.db import models
+from django.db.models.functions import Lower
 
 
 class FoodEntry(models.Model):
@@ -13,3 +15,51 @@ class FoodEntry(models.Model):
 
     def __str__(self):
         return f"{self.name}: {self.quantity} {self.unit}"
+
+class AccountProfile(models.Model):
+    """Registration details linked to the existing Django authentication user."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="account_profile",
+    )
+    email = models.EmailField(max_length=254)
+    phone_number = models.CharField(max_length=16)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(Lower("email"), name="unique_account_email_ci"),
+        ]
+
+    def __str__(self):
+        return self.email
+
+class PasswordResetRequest(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        COMPLETED = "completed", "Completed"
+        CLOSED = "closed", "Closed without reset"
+
+    email = models.EmailField(max_length=254)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDING, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    account = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="password_reset_requests")
+    handled_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="handled_password_reset_requests")
+    handled_at = models.DateTimeField(null=True, blank=True)
+    identity_verified_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="verified_password_reset_requests")
+    identity_verified_at = models.DateTimeField(null=True, blank=True)
+    admin_notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(fields=["email"], condition=models.Q(status="pending"),
+                name="unique_pending_reset_email"),
+        ]
+
+    def __str__(self):
+        return f"{self.email} — {self.get_status_display()}"

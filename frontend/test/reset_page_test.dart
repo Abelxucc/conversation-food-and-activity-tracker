@@ -9,7 +9,7 @@ import 'package:tracktalk/main.dart';
 import 'package:tracktalk/ReSetPage.dart';
 
 void main() {
-  testWidgets('forgot password opens reset with email and can return', (
+  testWidgets('forgot password opens request page with email and returns', (
     tester,
   ) async {
     await tester.pumpWidget(const TrackTalkApp());
@@ -21,10 +21,15 @@ void main() {
     await tester.tap(find.text('Forgot password?'));
     await tester.pumpAndSettle();
     expect(find.byType(ResetPage), findsOneWidget);
-    final field = tester.widget<TextFormField>(
-      find.byKey(const Key('reset-email')),
+    expect(find.byType(TextFormField), findsOneWidget);
+    expect(
+      tester
+          .widget<TextFormField>(find.byKey(const Key('reset-email')))
+          .controller!
+          .text,
+      'person@example.com',
     );
-    expect(field.controller!.text, 'person@example.com');
+    expect(find.text('Request password reset'), findsOneWidget);
     await tester.ensureVisible(find.text('Back to log in'));
     await tester.tap(find.text('Back to log in'));
     await tester.pumpAndSettle();
@@ -32,7 +37,7 @@ void main() {
   });
 
   testWidgets(
-    'invalid email sends no request and duplicate submits are blocked',
+    'validates email and waits for acceptance before claiming submission',
     (tester) async {
       var calls = 0;
       final pending = Completer<http.Response>();
@@ -43,9 +48,9 @@ void main() {
         return pending.future;
       });
       await http.runWithClient(() async {
-        await tester.pumpWidget(MaterialApp(home: const ResetPage()));
-        await tester.ensureVisible(find.text('Request reset link'));
-        await tester.tap(find.text('Request reset link'));
+        await tester.pumpWidget(const MaterialApp(home: ResetPage()));
+        await tester.ensureVisible(find.text('Request password reset'));
+        await tester.tap(find.text('Request password reset'));
         await tester.pump();
         expect(find.text('Enter your email address.'), findsOneWidget);
         expect(calls, 0);
@@ -53,125 +58,92 @@ void main() {
           find.byKey(const Key('reset-email')),
           'person@example.com',
         );
-        await tester.ensureVisible(find.text('Request reset link'));
-        await tester.tap(find.text('Request reset link'));
+        await tester.ensureVisible(find.text('Request password reset'));
+        await tester.tap(find.text('Request password reset'));
         await tester.pump();
         expect(calls, 1);
-        final button = tester.widget<FilledButton>(find.byType(FilledButton));
-        expect(button.onPressed, isNull);
-        pending.complete(http.Response('{"detail":"accepted"}', 200));
+        expect(
+          tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+          isNull,
+        );
+        expect(find.text('Request submitted'), findsNothing);
+        pending.complete(http.Response('{"detail":"accepted"}', 202));
         await tester.pumpAndSettle();
-        expect(find.text('Reset link requested'), findsOneWidget);
+        expect(find.text('Request submitted'), findsOneWidget);
+        expect(
+          find.text(
+            'Your password will be changed after your identity is verified.',
+          ),
+          findsOneWidget,
+        );
         expect(find.byType(TextFormField), findsNothing);
+        expect(find.text('Password reset'), findsNothing);
       }, () => client);
       client.close();
     },
   );
 
-  testWidgets('password confirmation and invalid link allow retry', (
+  testWidgets('network failure keeps request editable and allows retry', (
     tester,
   ) async {
-    final client = MockClient((request) async {
-      expect(request.url.path, '/api/auth/password-reset/confirm/');
-      final data = jsonDecode(request.body) as Map<String, dynamic>;
-      expect(data['uid'], 'MQ');
-      expect(data['token'], 'example-token');
-      return http.Response(
-        '{"detail":"This reset link is invalid or has expired. Request a new link."}',
-        400,
-      );
-    });
+    final client = MockClient(
+      (_) async => throw http.ClientException('offline'),
+    );
     await http.runWithClient(() async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: ResetPage(uid: 'MQ', token: 'example-token'),
-        ),
-      );
+      await tester.pumpWidget(const MaterialApp(home: ResetPage()));
       await tester.enterText(
-        find.byKey(const Key('reset-password')),
-        'A-new-password-71!',
+        find.byKey(const Key('reset-email')),
+        'person@example.com',
       );
-      await tester.enterText(
-        find.byKey(const Key('reset-confirmation')),
-        'different',
-      );
-      await tester.ensureVisible(find.text('Reset password'));
-      await tester.tap(find.text('Reset password'));
+      await tester.ensureVisible(find.text('Request password reset'));
+      await tester.tap(find.text('Request password reset'));
       await tester.pumpAndSettle();
-      expect(find.text('The passwords do not match.'), findsOneWidget);
-      await tester.enterText(
-        find.byKey(const Key('reset-confirmation')),
-        'A-new-password-71!',
-      );
-      await tester.ensureVisible(find.text('Reset password'));
-      await tester.tap(find.text('Reset password'));
-      await tester.pumpAndSettle();
-      expect(
-        find.text(
-          'This reset link is invalid or has expired. Request a new link.',
-        ),
-        findsOneWidget,
-      );
+      expect(find.text('Could not connect. Please try again.'), findsOneWidget);
+      expect(find.text('Request submitted'), findsNothing);
       expect(
         tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
         isNotNull,
       );
-      expect(find.text('Password reset'), findsNothing);
     }, () => client);
     client.close();
   });
 
-  testWidgets(
-    'deep link changes password only after successful backend response',
-    (tester) async {
-      final client = MockClient(
-        (request) async => http.Response('{"detail":"reset"}', 200),
+  testWidgets('submission allows correcting the email afterwards', (
+    tester,
+  ) async {
+    final client = MockClient((_) async => http.Response('{}', 202));
+    await http.runWithClient(() async {
+      await tester.pumpWidget(const MaterialApp(home: ResetPage()));
+      await tester.enterText(
+        find.byKey(const Key('reset-email')),
+        'person@example.com',
       );
-      await http.runWithClient(() async {
-        await tester.pumpWidget(const TrackTalkApp());
-        tester
-            .state<NavigatorState>(find.byType(Navigator))
-            .pushNamed('/reset-password/MQ/example-token');
-        await tester.pumpAndSettle();
-        expect(find.text('Set a new password'), findsOneWidget);
-        await tester.enterText(
-          find.byKey(const Key('reset-password')),
-          'A-new-password-71!',
-        );
-        await tester.enterText(
-          find.byKey(const Key('reset-confirmation')),
-          'A-new-password-71!',
-        );
-        await tester.ensureVisible(find.text('Reset password'));
-        await tester.tap(find.text('Reset password'));
-        await tester.pumpAndSettle();
-        expect(find.text('Password reset'), findsOneWidget);
-        expect(find.byType(TextFormField), findsNothing);
-        await tester.ensureVisible(find.text('Back to log in'));
-        await tester.tap(find.text('Back to log in'));
-        await tester.pumpAndSettle();
-        expect(find.text('Welcome back'), findsOneWidget);
-      }, () => client);
-      client.close();
-    },
-  );
+      await tester.ensureVisible(find.text('Request password reset'));
+      await tester.tap(find.text('Request password reset'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Use a different email'));
+      await tester.tap(find.text('Use a different email'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('reset-email')), findsOneWidget);
+      expect(find.text('Request password reset'), findsOneWidget);
+    }, () => client);
+    client.close();
+  });
 
-  testWidgets('reset form fits a small screen with keyboard', (tester) async {
+  testWidgets('small screen with keyboard keeps the request button reachable', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(320, 568);
     tester.view.devicePixelRatio = 1;
     tester.view.viewInsets = const FakeViewPadding(bottom: 260);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.view.resetViewInsets);
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: ResetPage(uid: 'MQ', token: 'test-token'),
-      ),
-    );
-    await tester.ensureVisible(find.text('Reset password'));
-    await tester.tap(find.text('Reset password'));
+    await tester.pumpWidget(const MaterialApp(home: ResetPage()));
+    await tester.ensureVisible(find.text('Request password reset'));
+    await tester.tap(find.text('Request password reset'));
     await tester.pumpAndSettle();
-    expect(find.text('Enter a new password.'), findsOneWidget);
+    expect(find.text('Enter your email address.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

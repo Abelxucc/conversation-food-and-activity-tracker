@@ -72,7 +72,7 @@ void main() {
     await tester.ensureVisible(find.text('Sign up here!'));
     await tester.tap(find.text('Sign up here!'));
     await tester.pumpAndSettle();
-    expect(find.text('Sign up is coming soon.'), findsOneWidget);
+    expect(find.text('Create an account'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

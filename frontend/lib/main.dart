@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'LoginPage.dart';
+import 'RegistrationPage.dart';
 import 'ReSetPage.dart';
 import 'api_config.dart';
 
@@ -25,20 +26,14 @@ class TrackTalkApp extends StatelessWidget {
       ),
       home: const LoginPage(),
       routes: {
+        '/register': (context) => RegistrationPage(
+          initialEmail:
+              ModalRoute.of(context)?.settings.arguments as String? ?? '',
+        ),
         '/reset-password': (context) => ResetPage(
           initialEmail:
               ModalRoute.of(context)?.settings.arguments as String? ?? '',
         ),
-      },
-      onGenerateRoute: (settings) {
-        final parts = Uri.tryParse(settings.name ?? '')?.pathSegments ?? [];
-        if (parts.length == 3 && parts.first == 'reset-password') {
-          return MaterialPageRoute<void>(
-            settings: settings,
-            builder: (_) => ResetPage(uid: parts[1], token: parts[2]),
-          );
-        }
-        return null;
       },
     );
   }
