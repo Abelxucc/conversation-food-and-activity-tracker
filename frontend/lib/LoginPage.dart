@@ -187,62 +187,6 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         child: const Text('Log in'),
                       ),
-                      const SizedBox(height: 24),
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: Divider(
-                              color: Color(0xFF202520),
-                              thickness: 1.5,
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 18),
-                            child: Text(
-                              'OR',
-                              style: _serif.copyWith(
-                                color: _green,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                          const Expanded(
-                            child: Divider(
-                              color: Color(0xFF202520),
-                              thickness: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 22),
-                      OutlinedButton(
-                        onPressed: () => _comingSoon('Google sign in'),
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF222522),
-                          minimumSize: const Size.fromHeight(48),
-                          side: const BorderSide(color: Color(0xFFD5D5D5)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(9),
-                          ),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _GoogleMark(),
-                            SizedBox(width: 16),
-                            Flexible(
-                              child: Text(
-                                'Continue with Google',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                       const SizedBox(height: 16),
                       Wrap(
                         alignment: WrapAlignment.center,
@@ -276,37 +220,6 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _GoogleMark extends StatelessWidget {
-  const _GoogleMark();
-
-  @override
-  Widget build(BuildContext context) {
-    return ExcludeSemantics(
-      child: ShaderMask(
-        blendMode: BlendMode.srcIn,
-        shaderCallback: (bounds) => const SweepGradient(
-          colors: [
-            Color(0xFF4285F4),
-            Color(0xFF34A853),
-            Color(0xFFFBBC05),
-            Color(0xFFEA4335),
-            Color(0xFF4285F4),
-          ],
-          stops: [0, 0.25, 0.5, 0.75, 1],
-        ).createShader(bounds),
-        child: const Text(
-          'G',
-          style: TextStyle(
-            fontSize: 27,
-            fontWeight: FontWeight.w800,
-            height: 1,
           ),
         ),
       ),
