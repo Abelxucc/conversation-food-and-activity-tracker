@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'auth_style.dart';
+import 'profile_setup_page.dart';
 import 'registration_service.dart';
 
 class RegistrationPage extends StatefulWidget {
@@ -25,6 +26,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
   bool _busy = false;
   bool _created = false;
   String? _error;
+  final _profileDraft = ProfileSetupDraft();
 
   @override
   void initState() {
@@ -49,15 +51,33 @@ class _RegistrationPageState extends State<RegistrationPage> {
       _error = null;
     });
     try {
-      await _service.register(
+      await _service.validateAccount(
         email: _email.text,
         confirmEmail: _confirmEmail.text,
         password: _password.text,
         phoneNumber: _phone.text,
       );
-      TextInput.finishAutofillContext(shouldSave: false);
-      _password.clear();
-      if (mounted) setState(() => _created = true);
+      if (!mounted) return;
+      final created = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          settings: const RouteSettings(name: '/profile/setup'),
+          builder: (_) => ProfileSetupPage(
+            draft: _profileDraft,
+            onSubmit: (profile) => _service.register(
+              email: _email.text,
+              confirmEmail: _confirmEmail.text,
+              password: _password.text,
+              phoneNumber: _phone.text,
+              profile: profile,
+            ),
+          ),
+        ),
+      );
+      if (mounted && created == true) {
+        TextInput.finishAutofillContext(shouldSave: false);
+        _password.clear();
+        setState(() => _created = true);
+      }
     } on RegistrationException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
@@ -130,7 +150,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   const SizedBox(height: 10),
                   Text(
                     _created
-                        ? 'Your TrackTalk account is ready.'
+                        ? 'Your TrackTalk account and profile are ready.'
                         : 'A little Logging. A big tracking',
                     style: AuthStyle.serif.copyWith(
                       fontSize: 18,
@@ -287,12 +307,12 @@ class _RegistrationPageState extends State<RegistrationPage> {
                             ),
                             if (_error != null)
                               Padding(
-                                padding: const EdgeInsets.only(top: 18),
+                                padding: const EdgeInsets.only(top: 16),
                                 child: Semantics(
                                   liveRegion: true,
                                   child: Text(
                                     _error!,
-                                    key: const Key('registration-error'),
+                                    key: const Key('account-error'),
                                     style: TextStyle(
                                       color: Theme.of(context)
                                           .colorScheme

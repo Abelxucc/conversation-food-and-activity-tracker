@@ -1,4 +1,4 @@
-"""Create email/password accounts and store their required phone number."""
+"""Create accounts and their profile in one transaction."""
 
 import re
 import uuid
@@ -28,6 +28,11 @@ class RegistrationThrottle(AnonRateThrottle):
     rate = "5/min"
 
 
+class RegistrationValidationThrottle(AnonRateThrottle):
+    scope = "account_registration_validation"
+    rate = "10/min"
+
+
 class RegistrationSerializer(serializers.Serializer):
     email = serializers.EmailField(max_length=254)
     confirm_email = serializers.EmailField(max_length=254, write_only=True)
@@ -35,6 +40,12 @@ class RegistrationSerializer(serializers.Serializer):
         write_only=True, trim_whitespace=False, max_length=4096
     )
     phone_number = serializers.CharField(max_length=40)
+    gender = serializers.ChoiceField(choices=AccountProfile.Gender.choices, required=False)
+    height_cm = serializers.DecimalField(max_digits=5, decimal_places=2,
+        min_value=30, max_value=300, required=False)
+    weight_kg = serializers.DecimalField(max_digits=5, decimal_places=2,
+        min_value=1, max_value=500, required=False)
+    age = serializers.IntegerField(min_value=1, max_value=120, required=False)
 
     def validate_phone_number(self, value):
         # Accept readable formatting, but store only a leading + and digits.
@@ -46,6 +57,11 @@ class RegistrationSerializer(serializers.Serializer):
         return normalized
 
     def validate(self, attrs):
+        profile_fields = ("gender", "height_cm", "weight_kg", "age")
+        if any(field in attrs for field in profile_fields):
+            missing = {field: "This field is required." for field in profile_fields if field not in attrs}
+            if missing:
+                raise serializers.ValidationError(missing)
         email = attrs["email"].strip().lower()
         if email != attrs["confirm_email"].strip().lower():
             raise serializers.ValidationError({"confirm_email": "The email addresses do not match."})
@@ -74,6 +90,10 @@ class RegistrationSerializer(serializers.Serializer):
                     user=user,
                     email=validated_data["email"],
                     phone_number=validated_data["phone_number"],
+                    gender=validated_data.get("gender", ""),
+                    height_cm=validated_data.get("height_cm"),
+                    weight_kg=validated_data.get("weight_kg"),
+                    age=validated_data.get("age"),
                 )
                 return user
         except IntegrityError as error:
@@ -82,6 +102,18 @@ class RegistrationSerializer(serializers.Serializer):
             raise serializers.ValidationError({
                 "email": "An account with this email address already exists.",
             }) from error
+
+
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+@parser_classes([JSONParser])
+@throttle_classes([RegistrationValidationThrottle])
+def validate_registration(request):
+    """Check account details before onboarding without creating any records."""
+    serializer = RegistrationSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @api_view(["POST"])

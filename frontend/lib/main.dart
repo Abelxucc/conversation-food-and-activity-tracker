@@ -26,6 +26,8 @@ class TrackTalkApp extends StatelessWidget {
       ),
       home: const LoginPage(),
       routes: {
+        // A direct link has no account draft, so start with account details.
+        '/profile/gender': (_) => const RegistrationPage(),
         '/register': (context) => RegistrationPage(
           initialEmail:
               ModalRoute.of(context)?.settings.arguments as String? ?? '',

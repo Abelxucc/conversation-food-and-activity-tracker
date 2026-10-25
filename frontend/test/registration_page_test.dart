@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:tracktalk/GenderPage.dart';
 import 'package:tracktalk/main.dart';
 import 'package:tracktalk/RegistrationPage.dart';
 
@@ -29,6 +30,27 @@ Future<void> fillForm(
     '+44 7700 900123',
   );
   await tester.ensureVisible(find.text('Create account'));
+}
+
+Future<void> fillProfile(WidgetTester tester) async {
+  await tester.ensureVisible(find.byKey(const Key('gender-female')));
+  await tester.tap(find.byKey(const Key('gender-female')));
+  await tester.ensureVisible(find.byKey(const Key('gender-continue')));
+  await tester.tap(find.byKey(const Key('gender-continue')));
+  await tester.pumpAndSettle();
+  expect(find.text('2 of 4'), findsOneWidget);
+  await tester.enterText(find.byKey(const Key('profile-height')), '172.5');
+  await tester.ensureVisible(find.byKey(const Key('profile-continue')));
+  await tester.tap(find.byKey(const Key('profile-continue')));
+  await tester.pumpAndSettle();
+  expect(find.text('3 of 4'), findsOneWidget);
+  await tester.enterText(find.byKey(const Key('profile-weight')), '68.25');
+  await tester.ensureVisible(find.byKey(const Key('profile-continue')));
+  await tester.tap(find.byKey(const Key('profile-continue')));
+  await tester.pumpAndSettle();
+  expect(find.text('4 of 4'), findsOneWidget);
+  await tester.enterText(find.byKey(const Key('profile-age')), '24');
+  await tester.ensureVisible(find.byKey(const Key('profile-continue')));
 }
 
 void main() {
@@ -99,11 +121,22 @@ void main() {
   });
 
   testWidgets(
-    'creates account only after backend confirmation and blocks duplicate submits',
+    'checks account details before profile and submits the complete registration last',
     (tester) async {
       final pending = Completer<http.Response>();
       var calls = 0;
+      var checks = 0;
       final client = MockClient((request) {
+        if (request.url.path == '/api/auth/register/validate/') {
+          checks++;
+          expect(jsonDecode(request.body), {
+            'email': 'person@example.com',
+            'confirm_email': 'person@example.com',
+            'password': 'River-walk-739!',
+            'phone_number': '+44 7700 900123',
+          });
+          return Future.value(http.Response('', 204));
+        }
         calls++;
         expect(request.url.path, '/api/auth/register/');
         expect(jsonDecode(request.body), {
@@ -111,6 +144,10 @@ void main() {
           'confirm_email': 'person@example.com',
           'password': 'River-walk-739!',
           'phone_number': '+44 7700 900123',
+          'gender': 'female',
+          'height_cm': '172.5',
+          'weight_kg': '68.25',
+          'age': 24,
         });
         return pending.future;
       });
@@ -118,6 +155,12 @@ void main() {
         await tester.pumpWidget(const MaterialApp(home: RegistrationPage()));
         await fillForm(tester);
         await tester.tap(find.text('Create account'));
+        await tester.pumpAndSettle();
+        expect(find.byType(GenderPage), findsOneWidget);
+        expect(checks, 1);
+        expect(calls, 0);
+        await fillProfile(tester);
+        await tester.tap(find.byKey(const Key('profile-continue')));
         await tester.pump();
         expect(calls, 1);
         expect(
@@ -125,65 +168,202 @@ void main() {
           isNull,
         );
         expect(find.text('Account created'), findsNothing);
+        await tester.binding.handlePopRoute();
+        await tester.pump();
+        expect(find.text('4 of 4'), findsOneWidget);
         pending.complete(http.Response('{"email":"person@example.com"}', 201));
         await tester.pumpAndSettle();
         expect(find.text('Account created'), findsOneWidget);
         expect(find.byType(TextFormField), findsNothing);
+        expect(calls, 1);
       }, () => client);
       client.close();
     },
   );
 
-  testWidgets('duplicate email error keeps details and permits retry', (
+  testWidgets(
+    'duplicate email is reported before gender and keeps account fields',
+    (tester) async {
+      final client = MockClient((request) async {
+        expect(request.url.path, '/api/auth/register/validate/');
+        return http.Response(
+          '{"email":["An account with this email address already exists."]}',
+          400,
+        );
+      });
+      await http.runWithClient(() async {
+        await tester.pumpWidget(const MaterialApp(home: RegistrationPage()));
+        await fillForm(tester);
+        await tester.tap(find.text('Create account'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('An account with this email address already exists.'),
+          findsOneWidget,
+        );
+        expect(find.text('Account created'), findsNothing);
+        expect(find.byType(GenderPage), findsNothing);
+        expect(
+          tester
+              .widget<TextFormField>(
+                find.byKey(const Key('registration-email')),
+              )
+              .controller!
+              .text,
+          'person@example.com',
+        );
+        expect(
+          tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+          isNotNull,
+        );
+      }, () => client);
+      client.close();
+    },
+  );
+
+  testWidgets(
+    'network failure keeps the draft and the final Continue can retry',
+    (tester) async {
+      var calls = 0;
+      final client = MockClient((request) async {
+        if (request.url.path == '/api/auth/register/validate/') {
+          return http.Response('', 204);
+        }
+        calls++;
+        if (calls == 1) throw http.ClientException('offline');
+        return http.Response('{}', 201);
+      });
+      await http.runWithClient(() async {
+        await tester.pumpWidget(const MaterialApp(home: RegistrationPage()));
+        await fillForm(tester);
+        await tester.tap(find.text('Create account'));
+        await tester.pumpAndSettle();
+        await fillProfile(tester);
+        await tester.tap(find.byKey(const Key('profile-continue')));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Could not connect. Please try again.'),
+          findsOneWidget,
+        );
+        expect(find.text('Account created'), findsNothing);
+        expect(
+          tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+          isNotNull,
+        );
+        await tester.ensureVisible(find.byKey(const Key('profile-continue')));
+        await tester.tap(find.byKey(const Key('profile-continue')));
+        await tester.pumpAndSettle();
+        expect(find.text('Account created'), findsOneWidget);
+        expect(calls, 2);
+      }, () => client);
+      client.close();
+    },
+  );
+
+  testWidgets('profile steps validate and retain values when going back', (
     tester,
   ) async {
-    final client = MockClient(
-      (_) async => http.Response(
-        '{"email":["An account with this email address already exists."]}',
-        400,
-      ),
-    );
+    var calls = 0;
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/auth/register/validate/') {
+        return http.Response('', 204);
+      }
+      calls++;
+      return http.Response('{}', 201);
+    });
     await http.runWithClient(() async {
       await tester.pumpWidget(const MaterialApp(home: RegistrationPage()));
       await fillForm(tester);
       await tester.tap(find.text('Create account'));
       await tester.pumpAndSettle();
-      expect(
-        find.text('An account with this email address already exists.'),
-        findsOneWidget,
-      );
-      expect(find.text('Account created'), findsNothing);
+      await tester.ensureVisible(find.byKey(const Key('gender-continue')));
+      await tester.tap(find.byKey(const Key('gender-continue')));
+      await tester.pumpAndSettle();
+      expect(find.text('Choose an option to continue.'), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const Key('gender-female')));
+      await tester.tap(find.byKey(const Key('gender-female')));
+      await tester.ensureVisible(find.byKey(const Key('gender-continue')));
+      await tester.tap(find.byKey(const Key('gender-continue')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('profile-height')), '0');
+      await tester.ensureVisible(find.byKey(const Key('profile-continue')));
+      await tester.tap(find.byKey(const Key('profile-continue')));
+      await tester.pumpAndSettle();
+      expect(find.text('Enter height between 30 and 300.'), findsOneWidget);
+      await tester.enterText(find.byKey(const Key('profile-height')), '172.5');
+      await tester.ensureVisible(find.byKey(const Key('profile-continue')));
+      await tester.tap(find.byKey(const Key('profile-continue')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('profile-weight')), '68.25');
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
       expect(
         tester
-            .widget<TextFormField>(find.byKey(const Key('registration-email')))
+            .widget<TextFormField>(find.byKey(const Key('profile-height')))
             .controller!
             .text,
-        'person@example.com',
+        '172.5',
       );
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byType(GenderPage), findsOneWidget);
+      expect(find.byKey(const Key('gender-selected')), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Create an account'), findsOneWidget);
+      await tester.ensureVisible(find.text('Create account'));
+      await tester.tap(find.text('Create account'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('gender-continue')));
+      await tester.tap(find.byKey(const Key('gender-continue')));
+      await tester.pumpAndSettle();
       expect(
-        tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
-        isNotNull,
+        tester
+            .widget<TextFormField>(find.byKey(const Key('profile-height')))
+            .controller!
+            .text,
+        '172.5',
       );
+      expect(calls, 0);
     }, () => client);
     client.close();
   });
 
-  testWidgets('network failure does not show account created', (tester) async {
-    final client = MockClient(
-      (_) async => throw http.ClientException('offline'),
-    );
-    await http.runWithClient(() async {
-      await tester.pumpWidget(const MaterialApp(home: RegistrationPage()));
-      await fillForm(tester);
-      await tester.tap(find.text('Create account'));
-      await tester.pumpAndSettle();
-      expect(find.text('Could not connect. Please try again.'), findsOneWidget);
-      expect(find.text('Account created'), findsNothing);
-      expect(
-        tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
-        isNotNull,
-      );
-    }, () => client);
-    client.close();
-  });
+  testWidgets(
+    'waits for account validation and allows retry when backend is unavailable',
+    (tester) async {
+      final pending = Completer<http.Response>();
+      var checks = 0;
+      final client = MockClient((request) {
+        expect(request.url.path, '/api/auth/register/validate/');
+        checks++;
+        return checks == 1
+            ? pending.future
+            : Future.value(http.Response('', 204));
+      });
+      await http.runWithClient(() async {
+        await tester.pumpWidget(const MaterialApp(home: RegistrationPage()));
+        await fillForm(tester);
+        await tester.tap(find.text('Create account'));
+        await tester.pump();
+        expect(find.byType(GenderPage), findsNothing);
+        expect(
+          tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+          isNull,
+        );
+        pending.completeError(http.ClientException('offline'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Could not connect. Please try again.'),
+          findsOneWidget,
+        );
+        expect(find.byType(GenderPage), findsNothing);
+        await tester.ensureVisible(find.text('Create account'));
+        await tester.tap(find.text('Create account'));
+        await tester.pumpAndSettle();
+        expect(find.byType(GenderPage), findsOneWidget);
+        expect(checks, 2);
+      }, () => client);
+      client.close();
+    },
+  );
 }

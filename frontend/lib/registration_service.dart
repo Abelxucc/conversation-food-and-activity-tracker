@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'api_config.dart';
+import 'profile_details.dart';
 
 class RegistrationException implements Exception {
   const RegistrationException(this.message);
@@ -13,24 +14,44 @@ class RegistrationException implements Exception {
 class RegistrationService {
   const RegistrationService();
 
+  Future<void> validateAccount({
+    required String email,
+    required String confirmEmail,
+    required String password,
+    required String phoneNumber,
+  }) => _post('/api/auth/register/validate/', {
+    'email': email.trim(),
+    'confirm_email': confirmEmail.trim(),
+    'password': password,
+    'phone_number': phoneNumber.trim(),
+  }, 204);
+
   Future<void> register({
     required String email,
     required String confirmEmail,
     required String password,
     required String phoneNumber,
-  }) async {
+    required ProfileDetails profile,
+  }) => _post('/api/auth/register/', {
+    'email': email.trim(),
+    'confirm_email': confirmEmail.trim(),
+    'password': password,
+    'phone_number': phoneNumber.trim(),
+    ...profile.toJson(),
+  }, 201);
+
+  Future<void> _post(
+    String path,
+    Map<String, Object> data,
+    int successCode,
+  ) async {
     late http.Response response;
     try {
       response = await http
           .post(
-            Uri.parse('${ApiConfig.baseUrl}/api/auth/register/'),
+            Uri.parse('${ApiConfig.baseUrl}$path'),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'email': email.trim(),
-              'confirm_email': confirmEmail.trim(),
-              'password': password,
-              'phone_number': phoneNumber.trim(),
-            }),
+            body: jsonEncode(data),
           )
           .timeout(const Duration(seconds: 15));
     } on TimeoutException {
@@ -40,7 +61,7 @@ class RegistrationService {
     } on http.ClientException {
       throw const RegistrationException('Could not connect. Please try again.');
     }
-    if (response.statusCode == 201) return;
+    if (response.statusCode == successCode) return;
     if (response.statusCode == 429) {
       throw const RegistrationException(
         'Too many attempts. Please wait a minute and try again.',

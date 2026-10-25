@@ -29,9 +29,9 @@ class AdministratorResetForm(SetPasswordForm):
 
 @admin.register(AccountProfile)
 class AccountProfileAdmin(admin.ModelAdmin):
-    list_display = ("email", "phone_number")
+    list_display = ("email", "phone_number", "gender", "height_cm", "weight_kg", "age")
     search_fields = ("email", "phone_number")
-    readonly_fields = ("user", "email", "phone_number")
+    readonly_fields = ("user", "email", "phone_number", "gender", "height_cm", "weight_kg", "age")
 
     def has_add_permission(self, request):
         return False

@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import authenticate, get_user_model
@@ -41,6 +42,41 @@ class RegistrationTests(TestCase):
         self.assertFalse(user.is_superuser)
         self.assertNotIn("_auth_user_id", self.client.session)
 
+    def test_preflight_validates_without_creating_any_records(self):
+        response = self.client.post(reverse("validate_registration"),
+            json.dumps(self.data), content_type="application/json")
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(get_user_model().objects.count(), 0)
+        self.assertEqual(AccountProfile.objects.count(), 0)
+
+    def test_preflight_rejects_existing_email_case_insensitively(self):
+        get_user_model().objects.create_user(username="existing", email="PERSON@example.com", password="Old-password-71!")
+        response = self.client.post(reverse("validate_registration"),
+            json.dumps(self.data), content_type="application/json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("already exists", response.json()["email"][0])
+        self.assertEqual(get_user_model().objects.count(), 1)
+        self.assertEqual(AccountProfile.objects.count(), 0)
+
+    def test_preflight_checks_password_phone_and_has_its_own_throttle(self):
+        url = reverse("validate_registration")
+        self.assertEqual(self.client.get(url).status_code, 405)
+        self.assertEqual(self.client.post(url, self.data).status_code, 415)
+        for invalid in ({**self.data, "password": "123"}, {**self.data, "phone_number": ""}):
+            self.assertEqual(self.client.post(url, json.dumps(invalid), content_type="application/json").status_code, 400)
+        cache.clear()
+        for _ in range(10):
+            self.assertEqual(self.client.post(url, json.dumps(self.data), content_type="application/json").status_code, 204)
+        self.assertEqual(self.client.post(url, json.dumps(self.data), content_type="application/json").status_code, 429)
+        self.assertEqual(self.post().status_code, 201)
+
+    def test_final_registration_rechecks_uniqueness_after_successful_preflight(self):
+        response = self.client.post(reverse("validate_registration"), json.dumps(self.data), content_type="application/json")
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(self.post().status_code, 201)
+        self.assertEqual(self.post().status_code, 400)
+        self.assertEqual(get_user_model().objects.count(), 1)
+
     def test_confirm_email_is_required_and_must_match(self):
         self.data["confirm_email"] = "other@example.com"
         self.assertEqual(self.post().status_code, 400)
@@ -48,6 +84,35 @@ class RegistrationTests(TestCase):
         self.assertEqual(self.post().status_code, 400)
         self.assertEqual(get_user_model().objects.count(), 0)
         self.assertEqual(AccountProfile.objects.count(), 0)
+
+    def test_registration_persists_all_four_profile_answers(self):
+        self.data.update(gender="prefer_not_to_say", height_cm="172.50", weight_kg="68.25", age=24)
+        response = self.post()
+        self.assertEqual(response.status_code, 201)
+        profile = AccountProfile.objects.select_related("user").get(email="person@example.com")
+        self.assertEqual(profile.gender, "prefer_not_to_say")
+        self.assertEqual(profile.height_cm, Decimal("172.50"))
+        self.assertEqual(profile.weight_kg, Decimal("68.25"))
+        self.assertEqual(profile.age, 24)
+        self.assertTrue(profile.user.check_password(self.data["password"]))
+
+    def test_profile_is_optional_for_old_clients_but_partial_profile_is_rejected(self):
+        self.data["gender"] = "female"
+        self.assertEqual(self.post().status_code, 400)
+        self.assertEqual(AccountProfile.objects.count(), 0)
+        self.assertEqual(get_user_model().objects.count(), 0)
+
+    def test_invalid_profile_values_cannot_create_accounts(self):
+        self.data.update(gender="female", height_cm="172.50", weight_kg="68.25", age=24)
+        for field, invalid_value in (("gender", "unknown"), ("height_cm", "0"),
+                ("height_cm", "301"), ("weight_kg", "0"), ("weight_kg", "501"),
+                ("weight_kg", "NaN"), ("age", 0), ("age", 121), ("age", 2.5)):
+            with self.subTest(field=field, value=invalid_value):
+                cache.clear()
+                invalid_data = {**self.data, field: invalid_value}
+                self.assertEqual(self.post(invalid_data).status_code, 400)
+        self.assertEqual(AccountProfile.objects.count(), 0)
+        self.assertEqual(get_user_model().objects.count(), 0)
 
     def test_password_policy_and_required_phone_are_checked_on_server(self):
         self.data["password"] = "123"

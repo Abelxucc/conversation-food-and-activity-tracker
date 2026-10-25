@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models.functions import Lower
 
@@ -26,6 +27,20 @@ class AccountProfile(models.Model):
     )
     email = models.EmailField(max_length=254)
     phone_number = models.CharField(max_length=16)
+
+    class Gender(models.TextChoices):
+        MALE = "male", "Male"
+        FEMALE = "female", "Female"
+        NON_BINARY = "non_binary", "Non-binary"
+        PREFER_NOT_TO_SAY = "prefer_not_to_say", "Prefer not to say"
+
+    gender = models.CharField(max_length=20, choices=Gender.choices, blank=True, default="")
+    height_cm = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(30), MaxValueValidator(300)])
+    weight_kg = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(500)])
+    age = models.PositiveSmallIntegerField(null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(120)])
 
     class Meta:
         constraints = [
