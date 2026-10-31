@@ -4,15 +4,35 @@ from django.db import models
 from django.db.models.functions import Lower
 
 
-class FoodEntry(models.Model):
-    name = models.CharField(max_length=200)
-    quantity = models.DecimalField(max_digits=8, decimal_places=2)
-    unit = models.CharField(max_length=30)
+class FoodRecord(models.Model):
+    class Meal(models.TextChoices):
+        BREAKFAST = "breakfast", "Breakfast"
+        LUNCH = "lunch", "Lunch"
+        DINNER = "dinner", "Dinner"
+        SNACK = "snack", "Snack"
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                             related_name="food_records")
+    meal_type = models.CharField(max_length=12, choices=Meal.choices)
     eaten_at = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-eaten_at", "-id"]
+
+
+class FoodEntry(models.Model):
+    # Null preserves old, unowned development entries during migration.
+    record = models.ForeignKey(FoodRecord, on_delete=models.CASCADE,
+                               related_name="items", null=True, blank=True)
+    name = models.CharField(max_length=200)
+    quantity = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    unit = models.CharField(max_length=30, blank=True, default="")
+    eaten_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
 
     def __str__(self):
         return f"{self.name}: {self.quantity} {self.unit}"
