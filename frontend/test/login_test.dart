@@ -1,40 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tracktalk/main.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:tracktalk/food_page.dart';
 
 void main() {
-  testWidgets('validates credentials without claiming authentication', (
-    tester,
-  ) async {
+  testWidgets('validates credentials and signs in', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const TrackTalkApp());
-    await tester.ensureVisible(find.text('Log in'));
-    await tester.tap(find.text('Log in'));
-    await tester.pumpAndSettle();
-    expect(find.text('Enter your email address.'), findsOneWidget);
-    expect(find.text('Enter your password.'), findsOneWidget);
-    await tester.enterText(find.byKey(const Key('login-email')), 'bad-email');
-    await tester.enterText(
-      find.byKey(const Key('login-password')),
-      'example-password',
-    );
-    await tester.ensureVisible(find.text('Log in'));
-    await tester.tap(find.text('Log in'));
-    await tester.pumpAndSettle();
-    expect(find.text('Enter a valid email address.'), findsOneWidget);
-    await tester.enterText(
-      find.byKey(const Key('login-email')),
-      'person@example.com',
-    );
-    await tester.ensureVisible(find.text('Log in'));
-    await tester.tap(find.text('Log in'));
-    await tester.pumpAndSettle();
-    expect(find.text('Sign in is coming soon.'), findsOneWidget);
-    expect(find.text('Welcome back'), findsOneWidget);
-    expect(tester.takeException(), isNull);
+    final client = MockClient((request) async {
+      expect(request.url.path, '/api/auth/login/');
+      return http.Response('{"token":"test-token"}', 200);
+    });
+    await http.runWithClient(() async {
+      await tester.pumpWidget(const TrackTalkApp());
+      await tester.ensureVisible(find.text('Log in'));
+      await tester.tap(find.text('Log in'));
+      await tester.pumpAndSettle();
+      expect(find.text('Enter your email address.'), findsOneWidget);
+      expect(find.text('Enter your password.'), findsOneWidget);
+      await tester.enterText(find.byKey(const Key('login-email')), 'bad-email');
+      await tester.enterText(
+        find.byKey(const Key('login-password')),
+        'example-password',
+      );
+      await tester.ensureVisible(find.text('Log in'));
+      await tester.tap(find.text('Log in'));
+      await tester.pumpAndSettle();
+      expect(find.text('Enter a valid email address.'), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const Key('login-email')),
+        'person@example.com',
+      );
+      await tester.ensureVisible(find.text('Log in'));
+      await tester.tap(find.text('Log in'));
+      await tester.pumpAndSettle();
+      expect(find.byType(FoodPage), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }, () => client);
+    client.close();
   });
 
   testWidgets('password toggle preserves the entered value', (tester) async {
