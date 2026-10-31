@@ -28,7 +28,10 @@ class _FoodPageState extends State<FoodPage> {
 
   Future<void> _edit() async {
     final draft = await Navigator.of(context).push<FoodDraft>(
-      CupertinoPageRoute(builder: (_) => FoodEditor(initialDraft: _draft)),
+      CupertinoPageRoute(
+        builder: (_) =>
+            FoodEditor(initialDraft: _draft, service: widget.service),
+      ),
     );
     if (mounted && draft != null) {
       setState(() {
@@ -76,7 +79,10 @@ class _FoodPageState extends State<FoodPage> {
     }
     await Navigator.of(context).push<void>(
       CupertinoPageRoute(
-        builder: (_) => FoodHistoryPage(service: widget.service),
+        builder: (_) => FoodHistoryPage(
+          service: widget.service,
+          initialDate: (_saved ?? _draft)?.eatenAt,
+        ),
       ),
     );
     if (mounted && _saved != null) {
@@ -88,12 +94,32 @@ class _FoodPageState extends State<FoodPage> {
     }
   }
 
+  void _back() {
+    if (_saving) return;
+    if (widget.initialRecord != null) {
+      Navigator.of(context).pop(_saved != null);
+    } else if (_saved != null) {
+      setState(() {
+        _saved = null;
+        _draft = null;
+        _error = null;
+      });
+    } else if (_draft != null) {
+      _edit();
+    } else {
+      Navigator.of(context).maybePop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final record = _saved ?? _draft;
     return FoodStyle.theme(
       PopScope(
-        canPop: !_saving,
+        canPop: !_saving && widget.initialRecord != null,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && !_saving && _draft != null) _back();
+        },
         child: CupertinoPageScaffold(
           child: SafeArea(
             child: Center(
@@ -106,11 +132,9 @@ class _FoodPageState extends State<FoodPage> {
                           ? 'Add record'
                           : 'Edit record',
                       onHistory: _saving ? null : _history,
-                      onBack: widget.initialRecord == null
-                          ? null
-                          : () {
-                              if (!_saving) Navigator.of(context).pop();
-                            },
+                      backEnabled: !_saving,
+                      showBack: _draft != null || widget.initialRecord != null,
+                      onBack: _back,
                     ),
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 22),

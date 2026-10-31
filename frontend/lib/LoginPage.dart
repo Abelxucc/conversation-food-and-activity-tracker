@@ -1,3 +1,4 @@
+// ignore_for_file: file_names
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -5,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'auth_style.dart';
 import 'food_page.dart';
 import 'food_service.dart';
+import 'page_back_button.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -46,11 +48,10 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       TextInput.finishAutofillContext(shouldSave: false);
       _passwordController.clear();
-      Navigator.of(context).pushAndRemoveUntil(
+      Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => FoodPage(service: FoodService(token)),
         ),
-        (_) => false,
       );
     } on FoodException catch (error) {
       if (mounted) setState(() => _error = error.message);
@@ -87,6 +88,13 @@ class _LoginPageState extends State<LoginPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: PageBackButton(
+                          enabled: !_busy,
+                          color: const Color(0xFF202520),
+                        ),
+                      ),
                       Center(
                         child: Image.asset(
                           'assets/images/Logo2.png',

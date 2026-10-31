@@ -3,10 +3,13 @@ import 'package:flutter/cupertino.dart';
 import 'food_page.dart';
 import 'food_service.dart';
 import 'food_style.dart';
+import 'food_editor.dart';
+import 'food_chrome.dart';
 
 class FoodHistoryPage extends StatefulWidget {
-  const FoodHistoryPage({super.key, required this.service});
+  const FoodHistoryPage({super.key, required this.service, this.initialDate});
   final FoodService service;
+  final DateTime? initialDate;
 
   @override
   State<FoodHistoryPage> createState() => _FoodHistoryPageState();
@@ -17,10 +20,14 @@ class _FoodHistoryPageState extends State<FoodHistoryPage> {
   bool _loading = true;
   String? _error;
   int? _deleting;
+  late DateTime _date;
+  String _filter = 'All';
 
   @override
   void initState() {
     super.initState();
+    final date = widget.initialDate ?? DateTime.now();
+    _date = DateTime(date.year, date.month, date.day);
     _load();
   }
 
@@ -44,10 +51,15 @@ class _FoodHistoryPageState extends State<FoodHistoryPage> {
   }
 
   Future<void> _edit(FoodRecord record) async {
-    await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push<FoodDraft>(
       CupertinoPageRoute(
-        builder: (_) =>
-            FoodPage(service: widget.service, initialRecord: record),
+        builder: (_) => FoodEditor(
+          initialDraft: record,
+          service: widget.service,
+          onSave: (draft) async {
+            await widget.service.save(draft, id: record.id);
+          },
+        ),
       ),
     );
     if (mounted) await _load();
@@ -84,151 +96,347 @@ class _FoodHistoryPageState extends State<FoodHistoryPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) => FoodStyle.theme(
-    CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: const Text('Food history'),
-        previousPageTitle: 'Record',
-        trailing: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: _loading || _deleting != null ? null : _load,
-          child: const Icon(
-            CupertinoIcons.refresh,
-            semanticLabel: 'Refresh history',
-          ),
-        ),
+  List<FoodRecord> get _visibleRecords => _filter == 'Activity'
+      ? []
+      : _records.where((record) {
+          final date = record.eatenAt;
+          return date.year == _date.year &&
+              date.month == _date.month &&
+              date.day == _date.day;
+        }).toList();
+
+  void _changeDate(int days) => setState(() {
+    _date = DateTime(_date.year, _date.month, _date.day + days);
+  });
+
+  Future<void> _pickDate() async {
+    var selected = _date;
+    final confirmed = await FoodStyle.picker(
+      context,
+      title: 'Date',
+      child: CupertinoDatePicker(
+        mode: CupertinoDatePickerMode.date,
+        initialDateTime: _date,
+        minimumYear: 1900,
+        onDateTimeChanged: (date) => selected = date,
       ),
-      child: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
-              slivers: [
-                CupertinoSliverRefreshControl(
-                  onRefresh: _deleting == null ? _load : null,
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(22, 20, 22, 32),
-                  sliver: SliverList.list(
-                    children: [
-                      const Text(
-                        'Your food diary',
-                        style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Saved meals, ready to revisit.',
-                        style: TextStyle(color: FoodStyle.muted, fontSize: 14),
-                      ),
-                      const SizedBox(height: 24),
-                      if (_loading)
-                        const Center(child: CupertinoActivityIndicator()),
-                      if (_error != null) ...[
-                        Semantics(
-                          liveRegion: true,
-                          child: Text(
-                            _error!,
-                            key: const Key('history-error'),
-                            style: const TextStyle(
-                              color: CupertinoColors.destructiveRed,
-                            ),
-                          ),
-                        ),
-                        CupertinoButton(
-                          onPressed: _loading || _deleting != null
-                              ? null
-                              : _load,
-                          child: const Text('Try again'),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                      if (!_loading && _error == null && _records.isEmpty)
-                        FoodStyle.card(
-                          const Column(
+    );
+    if (mounted && confirmed == true) {
+      setState(
+        () => _date = DateTime(selected.year, selected.month, selected.day),
+      );
+    }
+  }
+
+  void _add() => Navigator.of(context).pushReplacement<void, void>(
+    CupertinoPageRoute(builder: (_) => FoodPage(service: widget.service)),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final records = _visibleRecords;
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final busy = _deleting != null;
+    return FoodStyle.theme(
+      PopScope(
+        canPop: !busy,
+        child: CupertinoPageScaffold(
+          child: SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Column(
+                  children: [
+                    const FoodHeader(
+                      title: 'History',
+                      subtitle: 'Your saved food and activity',
+                      showHistory: false,
+                      showBack: false,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      child: Column(
+                        children: [
+                          Row(
                             children: [
-                              Icon(
-                                CupertinoIcons.book,
-                                size: 38,
-                                color: FoodStyle.forest,
+                              _dayButton(
+                                'history-previous-day',
+                                CupertinoIcons.chevron_left,
+                                'Previous day',
+                                busy ? null : () => _changeDate(-1),
                               ),
-                              SizedBox(height: 16),
-                              Text('No food records yet.'),
-                              SizedBox(height: 8),
-                              Text(
-                                'Add your first meal to start your diary.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: FoodStyle.muted,
-                                  fontSize: 14,
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: CupertinoButton(
+                                  key: const Key('history-date'),
+                                  alignment: Alignment.centerLeft,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 0,
+                                    vertical: 12,
+                                  ),
+                                  onPressed: busy ? null : _pickDate,
+                                  child: Text(
+                                    '${weekdays[_date.weekday - 1]}, ${FoodStyle.today(_date)}${_date.year == DateTime.now().year ? '' : ' ${_date.year}'}',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: FoodStyle.ink,
+                                    ),
+                                  ),
                                 ),
+                              ),
+                              _dayButton(
+                                'history-next-day',
+                                CupertinoIcons.chevron_right,
+                                'Next day',
+                                busy ? null : () => _changeDate(1),
                               ),
                             ],
                           ),
-                        ),
-                      for (final record in _records)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 18),
-                          child: FoodStyle.card(
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                RecordSummary(record: record, showTime: true),
-                                const SizedBox(height: 16),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: CupertinoButton(
-                                        color: FoodStyle.pale,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 12,
-                                        ),
-                                        borderRadius: BorderRadius.circular(10),
-                                        onPressed: _deleting == null
-                                            ? () => _edit(record)
-                                            : null,
-                                        child: const Text(
-                                          'Edit',
-                                          style: TextStyle(
-                                            color: FoodStyle.forest,
-                                          ),
-                                        ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              for (final filter in [
+                                'All',
+                                'Food',
+                                'Activity',
+                              ]) ...[
+                                if (filter != 'All') const SizedBox(width: 8),
+                                Expanded(
+                                  child: Semantics(
+                                    selected: _filter == filter,
+                                    child: CupertinoButton(
+                                      key: Key(
+                                        'history-filter-${filter.toLowerCase()}',
                                       ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    CupertinoButton(
-                                      onPressed: _deleting == null
-                                          ? () => _delete(record)
-                                          : null,
+                                      color: _filter == filter
+                                          ? FoodStyle.green
+                                          : FoodStyle.pale,
+                                      borderRadius: BorderRadius.circular(11),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      onPressed: busy
+                                          ? null
+                                          : () => setState(
+                                              () => _filter = filter,
+                                            ),
                                       child: Text(
-                                        _deleting == record.id
-                                            ? 'Deleting…'
-                                            : 'Delete',
-                                        style: const TextStyle(
-                                          color: CupertinoColors.destructiveRed,
+                                        filter,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: _filter == filter
+                                              ? CupertinoColors.white
+                                              : FoodStyle.forest,
                                         ),
                                       ),
                                     ),
-                                  ],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: CustomScrollView(
+                        physics: const BouncingScrollPhysics(
+                          parent: AlwaysScrollableScrollPhysics(),
+                        ),
+                        slivers: [
+                          CupertinoSliverRefreshControl(
+                            onRefresh: busy ? null : _load,
+                          ),
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(22, 8, 22, 22),
+                            sliver: SliverList.list(
+                              children: [
+                                if (_loading)
+                                  const Center(
+                                    child: CupertinoActivityIndicator(),
+                                  ),
+                                if (_error != null) ...[
+                                  Semantics(
+                                    liveRegion: true,
+                                    child: Text(
+                                      _error!,
+                                      key: const Key('history-error'),
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: CupertinoColors.destructiveRed,
+                                      ),
+                                    ),
+                                  ),
+                                  CupertinoButton(
+                                    onPressed: _loading || busy ? null : _load,
+                                    child: const Text('Try again'),
+                                  ),
+                                ],
+                                if (!_loading && _error == null) ...[
+                                  Text(
+                                    '${records.length} ${records.length == 1 ? 'record' : 'records'}',
+                                    key: const Key('history-count'),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: FoodStyle.muted,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  if (records.isEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: FoodStyle.card(
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: [
+                                            Text(
+                                              _filter == 'Activity'
+                                                  ? 'No activity records yet.'
+                                                  : 'No food records for this day.',
+                                              style: const TextStyle(
+                                                fontSize: 15,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              _filter == 'Activity'
+                                                  ? 'Your saved activities will appear here.'
+                                                  : 'Choose another date or add a record.',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: FoodStyle.muted,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                                if (!_loading)
+                                  for (final record in records)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: _recordCard(record),
+                                    ),
+                                const SizedBox(height: 2),
+                                CupertinoButton(
+                                  key: const Key('history-add-record'),
+                                  color: FoodStyle.pale,
+                                  borderRadius: BorderRadius.circular(11),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                  onPressed: busy ? null : _add,
+                                  child: const Text(
+                                    '+ Add record',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: FoodStyle.forest,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
                           ),
-                        ),
-                    ],
-                  ),
+                        ],
+                      ),
+                    ),
+                    FoodNavigation(
+                      highlightAdd: false,
+                      onAdd: busy ? null : _add,
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _dayButton(
+    String id,
+    IconData icon,
+    String label,
+    VoidCallback? onPressed,
+  ) => CupertinoButton(
+    key: Key(id),
+    color: FoodStyle.pale,
+    borderRadius: BorderRadius.circular(11),
+    padding: const EdgeInsets.all(12),
+    onPressed: onPressed,
+    child: Icon(icon, size: 14, semanticLabel: label, color: FoodStyle.forest),
+  );
+
+  Widget _recordCard(FoodRecord record) => FoodStyle.card(
+    Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                FoodStyle.meals[record.mealType] ?? record.mealType,
+                style: const TextStyle(fontSize: 16),
+              ),
+            ),
+            const Text(
+              'Food',
+              style: TextStyle(fontSize: 12, color: FoodStyle.muted),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          record.items.map((item) => item.name).join(' · '),
+          style: const TextStyle(fontSize: 13, height: 1.4),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '${FoodStyle.today(record.eatenAt)} · Time not specified',
+          style: const TextStyle(fontSize: 11, color: FoodStyle.muted),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _recordAction(
+                'Edit',
+                _deleting == null ? () => _edit(record) : null,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 2,
+              child: _recordAction(
+                _deleting == record.id ? 'Deleting…' : 'Delete',
+                _deleting == null ? () => _delete(record) : null,
+              ),
+            ),
+          ],
+        ),
+      ],
     ),
   );
+
+  Widget _recordAction(String label, VoidCallback? onPressed) =>
+      CupertinoButton(
+        color: FoodStyle.pale,
+        borderRadius: BorderRadius.circular(11),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        onPressed: onPressed,
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: FoodStyle.forest,
+          ),
+        ),
+      );
 }

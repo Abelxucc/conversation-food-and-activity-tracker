@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'auth_style.dart';
 import 'password_reset_service.dart';
+import 'page_back_button.dart';
 
 class ResetPage extends StatefulWidget {
   const ResetPage({super.key, this.initialEmail = ''});
@@ -54,8 +55,14 @@ class _ResetPageState extends State<ResetPage> {
     }
   }
 
-  void _backToLogin() =>
-      Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
+  void _backToLogin() {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+    } else {
+      navigator.pushNamedAndRemoveUntil('/', (_) => false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,13 +80,10 @@ class _ResetPageState extends State<ResetPage> {
                 children: [
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: IconButton(
-                      tooltip: 'Back to log in',
-                      onPressed: _busy ? null : _backToLogin,
-                      icon: const Icon(
-                        Icons.arrow_back,
-                        color: Color(0xFF353A35),
-                      ),
+                    child: PageBackButton(
+                      onPressed: _backToLogin,
+                      enabled: !_busy,
+                      color: const Color(0xFF353A35),
                     ),
                   ),
                   Center(

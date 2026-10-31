@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 
 import 'food_style.dart';
+import 'page_back_button.dart';
 
 /// Shared layout from the Add record design. Future destinations stay inert.
 class FoodHeader extends StatelessWidget {
@@ -12,11 +13,17 @@ class FoodHeader extends StatelessWidget {
     this.onHistory,
     this.onBack,
     this.showHistory = true,
+    this.subtitle,
+    this.backEnabled = true,
+    this.showBack = true,
   });
   final String title;
   final VoidCallback? onHistory;
   final VoidCallback? onBack;
   final bool showHistory;
+  final String? subtitle;
+  final bool backEnabled;
+  final bool showBack;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -28,16 +35,18 @@ class FoodHeader extends StatelessWidget {
           height: 44,
           child: Row(
             children: [
-              if (onBack != null)
-                CupertinoButton(
-                  padding: const EdgeInsets.only(right: 6),
+              if (showBack)
+                PageBackButton(
                   onPressed: onBack,
-                  child: const Icon(CupertinoIcons.chevron_back, size: 21),
+                  enabled: backEnabled,
+                  color: FoodStyle.forest,
                 ),
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(fontSize: 22, letterSpacing: -.6),
+                  style: const TextStyle(fontSize: 21, letterSpacing: -.6),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (showHistory)
@@ -53,7 +62,7 @@ class FoodHeader extends StatelessWidget {
           ),
         ),
         Text(
-          'Today, ${FoodStyle.today(DateTime.now())}',
+          subtitle ?? 'Today, ${FoodStyle.today(DateTime.now())}',
           style: const TextStyle(fontSize: 13, color: FoodStyle.muted),
         ),
       ],
@@ -115,7 +124,9 @@ class FoodModeSelector extends StatelessWidget {
 }
 
 class FoodNavigation extends StatelessWidget {
-  const FoodNavigation({super.key});
+  const FoodNavigation({super.key, this.highlightAdd = true, this.onAdd});
+  final bool highlightAdd;
+  final VoidCallback? onAdd;
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -139,20 +150,26 @@ class FoodNavigation extends StatelessWidget {
                   key: const Key('nav-add'),
                   label: 'Add record',
                   button: true,
-                  enabled: false,
-                  selected: true,
-                  child: Center(
-                    child: Container(
-                      width: 50,
-                      height: 50,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: FoodStyle.pale,
-                      ),
-                      child: const Icon(
-                        CupertinoIcons.plus,
-                        size: 25,
-                        color: FoodStyle.forest,
+                  enabled: onAdd != null,
+                  selected: highlightAdd,
+                  child: CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: onAdd,
+                    child: Center(
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: highlightAdd ? FoodStyle.pale : null,
+                        ),
+                        child: Icon(
+                          CupertinoIcons.plus,
+                          size: 29,
+                          color: highlightAdd
+                              ? FoodStyle.forest
+                              : FoodStyle.ink,
+                        ),
                       ),
                     ),
                   ),

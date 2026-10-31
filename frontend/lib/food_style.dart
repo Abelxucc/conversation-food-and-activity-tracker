@@ -1,12 +1,12 @@
 import 'package:flutter/cupertino.dart';
 
 class FoodStyle {
-  static const background = Color(0xFFF0F3E8);
-  static const surface = Color(0xFFFAFBF8);
-  static const green = Color(0xFF009D59);
+  static const background = Color(0xFFEFF4E9);
+  static const surface = Color(0xFFFAFAFA);
+  static const green = Color(0xFF009D56);
   static const ink = Color(0xFF1C2922);
   static const muted = Color(0xFF758575);
-  static const pale = Color(0xFFE2EAD9);
+  static const pale = Color(0xFFE3EAD9);
   static const forest = Color(0xFF336651);
   static const meals = {
     'breakfast': 'Breakfast',
@@ -20,7 +20,7 @@ class FoodStyle {
       brightness: Brightness.light,
       primaryColor: green,
       scaffoldBackgroundColor: background,
-      barBackgroundColor: Color(0xF0F0F3E8),
+      barBackgroundColor: Color(0xF0EFF4E9),
       textTheme: CupertinoTextThemeData(
         textStyle: TextStyle(
           fontFamily: 'CupertinoSystemText',
@@ -105,7 +105,14 @@ class FoodStyle {
   static Widget card(Widget child) => DecoratedBox(
     decoration: BoxDecoration(
       color: surface,
-      borderRadius: BorderRadius.circular(28),
+      borderRadius: BorderRadius.circular(30),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x142C4431),
+          blurRadius: 28,
+          offset: Offset(0, 10),
+        ),
+      ],
     ),
     child: Padding(padding: const EdgeInsets.all(20), child: child),
   );
