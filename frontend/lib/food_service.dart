@@ -42,14 +42,22 @@ class FoodDraft {
     required this.mealType,
     required this.eatenAt,
     required this.items,
+    this.timeSpecified = true,
   });
   final String mealType;
   final DateTime eatenAt;
   final List<FoodItem> items;
+  final bool timeSpecified;
 
   Map<String, Object?> toJson() => {
     'meal_type': mealType,
-    'eaten_at': eatenAt.toUtc().toIso8601String(),
+    'eaten_at':
+        (timeSpecified
+                ? eatenAt
+                : DateTime(eatenAt.year, eatenAt.month, eatenAt.day))
+            .toUtc()
+            .toIso8601String(),
+    'time_specified': timeSpecified,
     'items': items.map((item) => item.toJson()).toList(),
   };
 }
@@ -60,6 +68,7 @@ class FoodRecord extends FoodDraft {
     required super.mealType,
     required super.eatenAt,
     required super.items,
+    super.timeSpecified,
   });
   final int id;
 
@@ -67,6 +76,7 @@ class FoodRecord extends FoodDraft {
     id: json['id'] as int,
     mealType: json['meal_type'] as String,
     eatenAt: DateTime.parse(json['eaten_at'] as String).toLocal(),
+    timeSpecified: json['time_specified'] as bool? ?? true,
     items: (json['items'] as List)
         .map((item) => FoodItem.fromJson(item as Map<String, dynamic>))
         .toList(),

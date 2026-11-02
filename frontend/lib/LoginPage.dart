@@ -50,6 +50,7 @@ class _LoginPageState extends State<LoginPage> {
       _passwordController.clear();
       Navigator.of(context).push(
         MaterialPageRoute(
+          settings: const RouteSettings(name: FoodPage.routeName),
           builder: (_) => FoodPage(service: FoodService(token)),
         ),
       );

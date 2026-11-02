@@ -32,7 +32,7 @@ class FoodRecordSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FoodRecord
-        fields = ["id", "meal_type", "eaten_at", "items", "created_at"]
+        fields = ["id", "meal_type", "eaten_at", "time_specified", "items", "created_at"]
         read_only_fields = ["id", "created_at"]
 
     @transaction.atomic

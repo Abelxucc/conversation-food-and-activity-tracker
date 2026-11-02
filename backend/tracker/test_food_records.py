@@ -64,6 +64,38 @@ class FoodRecordTests(TestCase):
         self.assertEqual(FoodEntry.objects.count(), 0)
         self.assertEqual(self.client.get(self.url).data, [])
 
+    def test_unspecified_snack_time_survives_reload_and_can_be_set_and_cleared(self):
+        response = self.client.post(self.url,
+            {**self.payload, "meal_type": "snack", "time_specified": False}, format="json")
+        self.assertEqual(response.status_code, 201, response.data)
+        detail = f'{self.url}{response.data["id"]}/'
+        self.assertFalse(self.client.get(self.url).data[0]["time_specified"])
+        self.assertFalse(FoodRecord.objects.get().time_specified)
+        self.assertEqual(len(response.data["items"]), 2)
+
+        chosen_time = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        response = self.client.patch(detail,
+            {"eaten_at": chosen_time.isoformat(), "time_specified": True}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertTrue(self.client.get(detail).data["time_specified"])
+        self.assertEqual(FoodRecord.objects.get().eaten_at, chosen_time)
+
+        response = self.client.patch(detail, {"time_specified": False}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertFalse(self.client.get(detail).data["time_specified"])
+        self.assertEqual(FoodEntry.objects.count(), 2)
+
+    def test_legacy_requests_keep_their_times_and_partial_edits_preserve_the_flag(self):
+        record = self.create_record()
+        self.assertTrue(record["time_specified"])
+        detail = f'{self.url}{record["id"]}/'
+        response = self.client.patch(detail, {"time_specified": False}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        response = self.client.put(detail, self.payload, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertFalse(response.data["time_specified"])
+        self.assertFalse(FoodRecord.objects.get().time_specified)
+
     def test_other_account_cannot_list_read_edit_or_delete_record(self):
         record = self.create_record()
         self.client.force_authenticate(self.other)

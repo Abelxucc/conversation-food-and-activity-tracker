@@ -14,7 +14,7 @@ For this project the student will design and implement a mobile or web applicati
 - CORS restricted to local frontend origins.
 - Three backend tests and two Flutter widget tests.
 
-Food logging, authentication, natural-language extraction and voice input are not implemented yet.
+Manual food logging and email/password sign-in are implemented. See [FOOD-LOGGING.md](FOOD-LOGGING.md) for the current macOS setup, API and verification steps. Natural-language extraction, activity logging and voice input remain future work.
 
 ## Prerequisites
 
@@ -117,6 +117,6 @@ Commit dependency manifests, the Flutter lockfile and Django migrations.
 Servers bind to the local machine. CORS allows only `http://localhost:5173` and `http://127.0.0.1:5173`.
 Django settings are for local development and require production configuration before public deployment.
 Android emulator networking needs a separate API base URL; the default loopback URL is for local web development.
-The next milestone is manually creating, listing and editing food entries before adding language extraction.
+Manual meal creation, history, editing and deletion are available; see [FOOD-LOGGING.md](FOOD-LOGGING.md).
 
 References: [Flutter installation](https://docs.flutter.dev/install/manual), [Django tutorial](https://docs.djangoproject.com/en/5.2/intro/tutorial01/).

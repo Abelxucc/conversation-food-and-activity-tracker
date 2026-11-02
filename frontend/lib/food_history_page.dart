@@ -5,6 +5,7 @@ import 'food_service.dart';
 import 'food_style.dart';
 import 'food_editor.dart';
 import 'food_chrome.dart';
+import 'food_history_order.dart';
 
 class FoodHistoryPage extends StatefulWidget {
   const FoodHistoryPage({super.key, required this.service, this.initialDate});
@@ -98,12 +99,14 @@ class _FoodHistoryPageState extends State<FoodHistoryPage> {
 
   List<FoodRecord> get _visibleRecords => _filter == 'Activity'
       ? []
-      : _records.where((record) {
-          final date = record.eatenAt;
-          return date.year == _date.year &&
-              date.month == _date.month &&
-              date.day == _date.day;
-        }).toList();
+      : sortFoodHistory(
+          _records.where((record) {
+            final date = record.eatenAt;
+            return date.year == _date.year &&
+                date.month == _date.month &&
+                date.day == _date.day;
+          }),
+        );
 
   void _changeDate(int days) => setState(() {
     _date = DateTime(_date.year, _date.month, _date.day + days);
@@ -128,8 +131,23 @@ class _FoodHistoryPageState extends State<FoodHistoryPage> {
     }
   }
 
+  void _back() {
+    if (_deleting != null) return;
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.popUntil(
+        (route) => route.settings.name == FoodPage.routeName || route.isFirst,
+      );
+    } else {
+      _add();
+    }
+  }
+
   void _add() => Navigator.of(context).pushReplacement<void, void>(
-    CupertinoPageRoute(builder: (_) => FoodPage(service: widget.service)),
+    CupertinoPageRoute(
+      settings: const RouteSettings(name: FoodPage.routeName),
+      builder: (_) => FoodPage(service: widget.service),
+    ),
   );
 
   @override
@@ -147,11 +165,13 @@ class _FoodHistoryPageState extends State<FoodHistoryPage> {
                 constraints: const BoxConstraints(maxWidth: 520),
                 child: Column(
                   children: [
-                    const FoodHeader(
+                    FoodHeader(
                       title: 'History',
+                      centerTitle: true,
                       subtitle: 'Your saved food and activity',
                       showHistory: false,
-                      showBack: false,
+                      backEnabled: !busy,
+                      onBack: _back,
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 22),
@@ -392,13 +412,38 @@ class _FoodHistoryPageState extends State<FoodHistoryPage> {
           ],
         ),
         const SizedBox(height: 8),
-        Text(
-          record.items.map((item) => item.name).join(' · '),
-          style: const TextStyle(fontSize: 13, height: 1.4),
-        ),
+        for (final item in record.items)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    item.name,
+                    style: const TextStyle(fontSize: 13, height: 1.4),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    item.amount,
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: FoodStyle.muted,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         const SizedBox(height: 8),
         Text(
-          '${FoodStyle.today(record.eatenAt)} · Time not specified',
+          '${FoodStyle.today(record.eatenAt)} · ${record.timeSpecified ? FoodStyle.time(record.eatenAt) : 'Time not specified'}',
           style: const TextStyle(fontSize: 11, color: FoodStyle.muted),
         ),
         const SizedBox(height: 8),

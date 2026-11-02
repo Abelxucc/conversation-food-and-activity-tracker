@@ -16,6 +16,7 @@ class FoodHeader extends StatelessWidget {
     this.subtitle,
     this.backEnabled = true,
     this.showBack = true,
+    this.centerTitle = false,
   });
   final String title;
   final VoidCallback? onHistory;
@@ -24,6 +25,7 @@ class FoodHeader extends StatelessWidget {
   final String? subtitle;
   final bool backEnabled;
   final bool showBack;
+  final bool centerTitle;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -33,32 +35,32 @@ class FoodHeader extends StatelessWidget {
       children: [
         SizedBox(
           height: 44,
-          child: Row(
-            children: [
-              if (showBack)
-                PageBackButton(
-                  onPressed: onBack,
-                  enabled: backEnabled,
-                  color: FoodStyle.forest,
-                ),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(fontSize: 21, letterSpacing: -.6),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (showHistory)
-                CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  onPressed: onHistory,
-                  child: const Text(
-                    'History',
-                    style: TextStyle(fontSize: 14, color: FoodStyle.forest),
-                  ),
-                ),
-            ],
+          child: NavigationToolbar(
+            centerMiddle: centerTitle,
+            middleSpacing: 0,
+            leading: showBack
+                ? PageBackButton(
+                    onPressed: onBack,
+                    enabled: backEnabled,
+                    color: FoodStyle.forest,
+                  )
+                : null,
+            middle: Text(
+              title,
+              style: const TextStyle(fontSize: 21, letterSpacing: -.6),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: showHistory
+                ? CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: onHistory,
+                    child: const Text(
+                      'History',
+                      style: TextStyle(fontSize: 14, color: FoodStyle.forest),
+                    ),
+                  )
+                : null,
           ),
         ),
         Text(
@@ -129,7 +131,7 @@ class FoodNavigation extends StatelessWidget {
   final VoidCallback? onAdd;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+    padding: const EdgeInsets.fromLTRB(12, 0, 12, 2),
     child: ClipRRect(
       borderRadius: BorderRadius.circular(42),
       child: BackdropFilter(

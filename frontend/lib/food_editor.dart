@@ -3,7 +3,6 @@ import 'package:flutter/cupertino.dart';
 import 'food_amount.dart';
 import 'food_amount_input.dart';
 import 'food_chrome.dart';
-import 'food_history_page.dart';
 import 'food_service.dart';
 import 'food_style.dart';
 
@@ -38,6 +37,7 @@ class _FoodEditorState extends State<FoodEditor> {
   final _mealField = GlobalKey<FormFieldState<String>>();
   late String? _meal;
   late DateTime _eatenAt;
+  late bool _timeSpecified;
   late final List<_FoodInputs> _items;
   final _removed = <_FoodInputs>[];
   bool _saving = false;
@@ -49,6 +49,7 @@ class _FoodEditorState extends State<FoodEditor> {
     super.initState();
     _meal = widget.initialDraft?.mealType;
     _eatenAt = widget.initialDraft?.eatenAt ?? DateTime.now();
+    _timeSpecified = widget.initialDraft?.timeSpecified ?? false;
     _items =
         widget.initialDraft?.items.map(_FoodInputs.new).toList() ??
         [_FoodInputs()];
@@ -118,14 +119,32 @@ class _FoodEditorState extends State<FoodEditor> {
     }
   }
 
-  Future<void> _history() async {
+  Future<void> _pickTime() async {
     FocusScope.of(context).unfocus();
-    await Navigator.of(context).push<void>(
-      CupertinoPageRoute(
-        builder: (_) =>
-            FoodHistoryPage(service: widget.service!, initialDate: _eatenAt),
+    var selected = _eatenAt;
+    final confirmed = await FoodStyle.picker(
+      context,
+      title: 'Time',
+      child: CupertinoDatePicker(
+        key: const Key('time-picker'),
+        mode: CupertinoDatePickerMode.time,
+        initialDateTime: _eatenAt,
+        use24hFormat: true,
+        onDateTimeChanged: (time) => selected = time,
       ),
     );
+    if (mounted && confirmed == true) {
+      setState(() {
+        _eatenAt = DateTime(
+          _eatenAt.year,
+          _eatenAt.month,
+          _eatenAt.day,
+          selected.hour,
+          selected.minute,
+        );
+        _timeSpecified = true;
+      });
+    }
   }
 
   void _remove(_FoodInputs item) {
@@ -150,6 +169,7 @@ class _FoodEditorState extends State<FoodEditor> {
     final draft = FoodDraft(
       mealType: _meal!,
       eatenAt: _eatenAt,
+      timeSpecified: _timeSpecified,
       items: _items.where((item) => !item.isBlank).map((item) {
         final amount = FoodAmount.isUnspecified(item.amount.text)
             ? null
@@ -198,14 +218,13 @@ class _FoodEditorState extends State<FoodEditor> {
                 children: [
                   FoodHeader(
                     title: _editing ? 'Edit food record' : 'Add food manually',
+                    centerTitle: true,
+                    showHistory: false,
                     subtitle: _editing
-                        ? 'Update names, amounts or meal'
+                        ? 'Update foods, amounts, meal, date or time'
                         : 'Enter a food record without a message',
                     backEnabled: !_saving,
                     onBack: () => Navigator.of(context).maybePop(),
-                    onHistory: widget.service == null || _saving
-                        ? null
-                        : _history,
                   ),
                   Expanded(
                     child: Form(
@@ -265,6 +284,38 @@ class _FoodEditorState extends State<FoodEditor> {
                                   key: const Key('food-date'),
                                   value: FoodStyle.today(_eatenAt),
                                   onTap: _pickDate,
+                                ),
+                                const SizedBox(height: 12),
+                                _label('Time · optional'),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _selection(
+                                        key: const Key('food-time'),
+                                        value: _timeSpecified
+                                            ? FoodStyle.time(_eatenAt)
+                                            : 'Time not specified',
+                                        onTap: _pickTime,
+                                      ),
+                                    ),
+                                    if (_timeSpecified)
+                                      CupertinoButton(
+                                        key: const Key('clear-food-time'),
+                                        padding: const EdgeInsets.all(8),
+                                        onPressed: _saving
+                                            ? null
+                                            : () => setState(
+                                                () => _timeSpecified = false,
+                                              ),
+                                        child: const Icon(
+                                          CupertinoIcons.clear_circled,
+                                          semanticLabel: 'Clear time',
+                                          size: 22,
+                                          color: FoodStyle.forest,
+                                        ),
+                                      ),
+                                  ],
                                 ),
                                 const SizedBox(height: 14),
                                 Row(

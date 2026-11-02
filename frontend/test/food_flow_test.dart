@@ -288,6 +288,7 @@ void main() {
     'review does not write; confirm stores all items and reloads history',
     (tester) async {
       final requests = <http.Request>[];
+      Map<String, dynamic>? savedRecord;
       final client = MockClient((request) async {
         requests.add(request);
         expect(request.headers['Authorization'], 'Token example-token');
@@ -297,9 +298,10 @@ void main() {
             {'name': 'Porridge', 'quantity': '100', 'unit': 'g'},
             {'name': 'Milk', 'quantity': null, 'unit': ''},
           ]);
-          return http.Response(jsonEncode({...data, 'id': 7}), 201);
+          savedRecord = {...data, 'id': 7};
+          return http.Response(jsonEncode(savedRecord), 201);
         }
-        return http.Response(jsonEncode([stored]), 200);
+        return http.Response(jsonEncode([savedRecord!]), 200);
       });
       await http.runWithClient(() async {
         await tester.pumpWidget(
@@ -313,7 +315,7 @@ void main() {
         await tapVisible(tester, find.byKey(const Key('confirm-record')));
         expect(find.text('✓ Your food record has been saved.'), findsOneWidget);
         await tapVisible(tester, find.text('View history'));
-        expect(find.text('Porridge · Milk'), findsOneWidget);
+        expect(find.text('Porridge'), findsOneWidget);
         expect(find.text('1 record'), findsOneWidget);
         expect(requests.map((r) => r.method), ['POST', 'GET']);
         expect(tester.takeException(), isNull);
@@ -370,37 +372,315 @@ void main() {
     },
   );
 
+  testWidgets('iOS date wheel cancels and commits while preserving the time', (
+    tester,
+  ) async {
+    final date = DateTime(2026, 10, 10, 9, 30);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FoodEditor(
+          initialDraft: FoodDraft(
+            mealType: 'breakfast',
+            eatenAt: date,
+            items: const [FoodItem(name: 'Rice')],
+          ),
+        ),
+      ),
+    );
+    await tapVisible(tester, find.byKey(const Key('food-date')));
+    final datePicker = tester.widget<CupertinoDatePicker>(
+      find.byKey(const Key('date-picker')),
+    );
+    expect(datePicker.mode, CupertinoDatePickerMode.date);
+    datePicker.onDateTimeChanged(DateTime(2026, 10, 11));
+    await tapVisible(tester, find.byKey(const Key('picker-cancel')));
+    expect(find.text('10 October'), findsOneWidget);
+    await tapVisible(tester, find.byKey(const Key('food-date')));
+    tester
+        .widget<CupertinoDatePicker>(find.byKey(const Key('date-picker')))
+        .onDateTimeChanged(DateTime(2026, 10, 11));
+    await tapVisible(tester, find.byKey(const Key('picker-done')));
+    expect(find.text('11 October'), findsOneWidget);
+    expect(find.byKey(const Key('food-time')), findsOneWidget);
+    expect(find.text('09:30'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
-    'iOS date wheel cancels and commits without adding a time field',
+    'selected time survives cancellation, date changes, creation and editing',
     (tester) async {
-      final date = DateTime(2026, 10, 10, 9, 30);
+      final methods = <String>[];
+      Map<String, dynamic>? record;
+      var expectedTime = DateTime(2026, 10, 31, 12, 45);
+      final client = MockClient((request) async {
+        methods.add(request.method);
+        if (request.method == 'POST' || request.method == 'PUT') {
+          final data = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(data['eaten_at'], expectedTime.toUtc().toIso8601String());
+          expect(data['time_specified'], true);
+          expect(data['items'], [
+            {'name': 'Rice', 'quantity': null, 'unit': ''},
+          ]);
+          record = {...data, 'id': 7};
+          return http.Response(
+            jsonEncode(record),
+            request.method == 'POST' ? 201 : 200,
+          );
+        }
+        return http.Response(jsonEncode([record!]), 200);
+      });
+      await http.runWithClient(() async {
+        await tester.pumpWidget(
+          const MaterialApp(home: FoodPage(service: FoodService('token'))),
+        );
+        await tapVisible(tester, find.byKey(const Key('add-manually')));
+        await chooseMeal(tester);
+        await tester.enterText(find.byKey(const Key('food-name-0')), 'Rice');
+        await tapVisible(tester, find.byKey(const Key('food-date')));
+        tester
+            .widget<CupertinoDatePicker>(find.byKey(const Key('date-picker')))
+            .onDateTimeChanged(DateTime(2026, 10, 30));
+        await tapVisible(tester, find.byKey(const Key('picker-done')));
+
+        await tapVisible(tester, find.byKey(const Key('food-time')));
+        var picker = tester.widget<CupertinoDatePicker>(
+          find.byKey(const Key('time-picker')),
+        );
+        final originalTime = picker.initialDateTime;
+        expect(picker.mode, CupertinoDatePickerMode.time);
+        expect(picker.use24hFormat, isTrue);
+        picker.onDateTimeChanged(expectedTime);
+        await tapVisible(tester, find.byKey(const Key('picker-cancel')));
+        await tapVisible(tester, find.byKey(const Key('food-time')));
+        picker = tester.widget<CupertinoDatePicker>(
+          find.byKey(const Key('time-picker')),
+        );
+        expect(picker.initialDateTime, originalTime);
+        picker.onDateTimeChanged(expectedTime);
+        await tapVisible(tester, find.byKey(const Key('picker-done')));
+        expect(find.text('30 October'), findsOneWidget);
+        expect(find.text('12:45'), findsOneWidget);
+
+        await tapVisible(tester, find.byKey(const Key('food-date')));
+        tester
+            .widget<CupertinoDatePicker>(find.byKey(const Key('date-picker')))
+            .onDateTimeChanged(expectedTime);
+        await tapVisible(tester, find.byKey(const Key('picker-done')));
+        expect(find.text('12:45'), findsOneWidget);
+        await tapVisible(tester, find.byKey(const Key('review-record')));
+        expect(find.text('31 Oct 2026 · 12:45'), findsOneWidget);
+        expect(methods, isEmpty);
+        await tapVisible(tester, find.byKey(const Key('confirm-record')));
+        await tapVisible(tester, find.text('View history'));
+        expect(find.text('31 October · 12:45'), findsOneWidget);
+        expect(find.textContaining('Time not specified'), findsNothing);
+
+        await tapVisible(tester, find.text('Edit'));
+        expect(find.text('12:45'), findsOneWidget);
+        await tapVisible(tester, find.byKey(const Key('food-time')));
+        picker = tester.widget<CupertinoDatePicker>(
+          find.byKey(const Key('time-picker')),
+        );
+        expect(picker.initialDateTime, expectedTime);
+        expectedTime = DateTime(2026, 10, 31, 13, 15);
+        picker.onDateTimeChanged(expectedTime);
+        await tapVisible(tester, find.byKey(const Key('picker-done')));
+        await tapVisible(tester, find.byKey(const Key('review-record')));
+        expect(find.text('31 October · 13:15'), findsOneWidget);
+        expect(methods, ['POST', 'GET', 'PUT', 'GET']);
+        expect(tester.takeException(), isNull);
+      }, () => client);
+      client.close();
+    },
+  );
+
+  testWidgets('optional time can be cancelled, chosen, cleared and saved', (
+    tester,
+  ) async {
+    Map<String, dynamic>? saved;
+    final client = MockClient((request) async {
+      if (request.method == 'POST') {
+        saved = {...jsonDecode(request.body) as Map<String, dynamic>, 'id': 7};
+        expect(saved!['time_specified'], false);
+        expect(DateTime.parse(saved!['eaten_at'] as String).toLocal().hour, 0);
+        return http.Response(jsonEncode(saved), 201);
+      }
+      return http.Response(jsonEncode([saved!]), 200);
+    });
+    await http.runWithClient(() async {
+      await tester.pumpWidget(
+        const MaterialApp(home: FoodPage(service: FoodService('token'))),
+      );
+      await tapVisible(tester, find.byKey(const Key('add-manually')));
+      await chooseMeal(tester);
+      await tester.enterText(find.byKey(const Key('food-name-0')), 'Banana');
+      expect(find.text('Time not specified'), findsOneWidget);
+      await tapVisible(tester, find.byKey(const Key('food-time')));
+      tester
+          .widget<CupertinoDatePicker>(find.byKey(const Key('time-picker')))
+          .onDateTimeChanged(DateTime(2026, 10, 31, 10));
+      await tapVisible(tester, find.byKey(const Key('picker-cancel')));
+      expect(find.text('Time not specified'), findsOneWidget);
+      await tapVisible(tester, find.byKey(const Key('food-time')));
+      tester
+          .widget<CupertinoDatePicker>(find.byKey(const Key('time-picker')))
+          .onDateTimeChanged(DateTime(2026, 10, 31, 10));
+      await tapVisible(tester, find.byKey(const Key('picker-done')));
+      expect(find.text('10:00'), findsOneWidget);
+      await tapVisible(tester, find.byKey(const Key('clear-food-time')));
+      expect(find.text('Time not specified'), findsOneWidget);
+      await tapVisible(tester, find.byKey(const Key('review-record')));
+      expect(find.textContaining('Time not specified'), findsOneWidget);
+      await tapVisible(tester, find.text('Edit'));
+      expect(find.text('Time not specified'), findsOneWidget);
+      await tapVisible(tester, find.byKey(const Key('review-record')));
+      await tapVisible(tester, find.byKey(const Key('confirm-record')));
+      await tapVisible(tester, find.text('View history'));
+      expect(find.textContaining('Time not specified'), findsOneWidget);
+      await tapVisible(tester, find.text('Edit'));
+      expect(find.text('Time not specified'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }, () => client);
+    client.close();
+  });
+
+  testWidgets('history inserts timed snacks and reorders them after editing', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(402, 2600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    Map<String, dynamic> meal(
+      int id,
+      String type,
+      int hour,
+      String name, [
+      bool time = true,
+    ]) => {
+      'id': id,
+      'meal_type': type,
+      'eaten_at': DateTime(2026, 10, 31, hour).toUtc().toIso8601String(),
+      'time_specified': time,
+      'items': [
+        {'name': name, 'quantity': null, 'unit': ''},
+      ],
+    };
+    final records = [
+      meal(1, 'dinner', 19, 'Evening meal'),
+      meal(2, 'snack', 0, 'Untimed snack', false),
+      meal(3, 'lunch', 12, 'Midday meal'),
+      meal(4, 'snack', 10, 'Timed snack'),
+      meal(5, 'breakfast', 8, 'Morning meal'),
+    ];
+    final client = MockClient((request) async {
+      if (request.method == 'PUT') {
+        records[3] = {
+          ...jsonDecode(request.body) as Map<String, dynamic>,
+          'id': 4,
+        };
+        return http.Response(jsonEncode(records[3]), 200);
+      }
+      return http.Response(jsonEncode(records), 200);
+    });
+    void expectOrder(List<String> names) {
+      final positions = names
+          .map((name) => tester.getTopLeft(find.text(name)).dy)
+          .toList();
+      for (var i = 1; i < positions.length; i++) {
+        expect(positions[i], greaterThan(positions[i - 1]));
+      }
+    }
+
+    await http.runWithClient(() async {
       await tester.pumpWidget(
         MaterialApp(
-          home: FoodEditor(
-            initialDraft: FoodDraft(
-              mealType: 'breakfast',
-              eatenAt: date,
-              items: const [FoodItem(name: 'Rice')],
-            ),
+          home: FoodHistoryPage(
+            service: const FoodService('token'),
+            initialDate: DateTime(2026, 10, 31),
           ),
         ),
       );
-      await tapVisible(tester, find.byKey(const Key('food-date')));
-      final datePicker = tester.widget<CupertinoDatePicker>(
-        find.byKey(const Key('date-picker')),
-      );
-      expect(datePicker.mode, CupertinoDatePickerMode.date);
-      datePicker.onDateTimeChanged(DateTime(2026, 10, 11));
-      await tapVisible(tester, find.byKey(const Key('picker-cancel')));
-      expect(find.text('10 October'), findsOneWidget);
-      await tapVisible(tester, find.byKey(const Key('food-date')));
+      await tester.pumpAndSettle();
+      expectOrder([
+        'Morning meal',
+        'Timed snack',
+        'Midday meal',
+        'Evening meal',
+        'Untimed snack',
+      ]);
+      await tapVisible(tester, find.text('Edit').at(1));
+      expect(find.text('10:00'), findsOneWidget);
+      await tapVisible(tester, find.byKey(const Key('food-time')));
       tester
-          .widget<CupertinoDatePicker>(find.byKey(const Key('date-picker')))
-          .onDateTimeChanged(DateTime(2026, 10, 11));
+          .widget<CupertinoDatePicker>(find.byKey(const Key('time-picker')))
+          .onDateTimeChanged(DateTime(2026, 10, 31, 15));
       await tapVisible(tester, find.byKey(const Key('picker-done')));
-      expect(find.text('11 October'), findsOneWidget);
-      expect(find.byKey(const Key('food-time')), findsNothing);
+      await tapVisible(tester, find.byKey(const Key('review-record')));
+      expectOrder([
+        'Morning meal',
+        'Midday meal',
+        'Timed snack',
+        'Evening meal',
+        'Untimed snack',
+      ]);
       expect(tester.takeException(), isNull);
+    }, () => client);
+    client.close();
+  });
+
+  testWidgets(
+    'history keeps each food beside its own amount on a small screen',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      const longName = 'Blueberries with banana and unsweetened yoghurt';
+      final client = MockClient(
+        (_) async => http.Response(
+          jsonEncode([
+            {
+              ...stored,
+              'items': [
+                {'name': 'Blueberry', 'quantity': '1.00', 'unit': 'bowl'},
+                {'name': 'Banana', 'quantity': '2.00', 'unit': 'item'},
+                {'name': longName, 'quantity': null, 'unit': ''},
+              ],
+            },
+          ]),
+          200,
+        ),
+      );
+      await http.runWithClient(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: FoodHistoryPage(
+              service: const FoodService('token'),
+              initialDate: DateTime(2026, 10, 31),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final blueberry = tester.getTopLeft(find.text('Blueberry'));
+        final bowl = tester.getTopRight(find.text('1 bowl'));
+        final banana = tester.getTopLeft(find.text('Banana'));
+        final count = tester.getTopRight(find.text('2 item'));
+        expect(blueberry.dy, bowl.dy);
+        expect(banana.dy, count.dy);
+        expect(banana.dy, greaterThan(blueberry.dy));
+        expect(bowl.dx, count.dx);
+        expect(
+          tester.getTopLeft(find.text('1 bowl')).dx,
+          greaterThan(blueberry.dx),
+        );
+        expect(find.text(longName), findsOneWidget);
+        expect(find.text('Amount not provided'), findsOneWidget);
+        expect(find.text('Blueberry · Banana'), findsNothing);
+        expect(find.text('31 October · 09:30'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }, () => client);
+      client.close();
     },
   );
 
@@ -516,7 +796,7 @@ void main() {
       await tapVisible(tester, find.text('Edit'));
       await tester.enterText(find.byKey(const Key('food-name-0')), 'Oats');
       await tapVisible(tester, find.byKey(const Key('review-record')));
-      expect(find.text('Oats · Milk'), findsOneWidget);
+      expect(find.text('Oats'), findsOneWidget);
       expect(methods, ['GET', 'PUT', 'GET']);
       expect(tester.takeException(), isNull);
     }, () => client);
@@ -579,7 +859,7 @@ void main() {
         expect(find.text('Oats'), findsOneWidget);
         await tapVisible(tester, find.byKey(const Key('review-record')));
         expect(find.byType(FoodEditor), findsNothing);
-        expect(find.text('Oats · Milk'), findsOneWidget);
+        expect(find.text('Oats'), findsOneWidget);
         expect(saves, 2);
       }, () => client);
       client.close();
@@ -656,7 +936,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('History'), findsOneWidget);
         expect(find.text('1 record'), findsOneWidget);
-        expect(find.text('Porridge · Milk'), findsOneWidget);
+        expect(find.text('Porridge'), findsOneWidget);
         expect(find.text('Toast'), findsNothing);
         await tapVisible(
           tester,
@@ -667,9 +947,9 @@ void main() {
         await tapVisible(tester, find.byKey(const Key('history-filter-food')));
         await tapVisible(tester, find.byKey(const Key('history-previous-day')));
         expect(find.text('Toast'), findsOneWidget);
-        expect(find.text('Porridge · Milk'), findsNothing);
+        expect(find.text('Porridge'), findsNothing);
         await tapVisible(tester, find.byKey(const Key('history-next-day')));
-        expect(find.text('Porridge · Milk'), findsOneWidget);
+        expect(find.text('Porridge'), findsOneWidget);
         await tapVisible(tester, find.byKey(const Key('history-next-day')));
         expect(find.text('0 records'), findsOneWidget);
         expect(find.text('No food records for this day.'), findsOneWidget);
@@ -681,6 +961,73 @@ void main() {
       client.close();
     },
   );
+
+  testWidgets('history back returns to Add record and preserves its draft', (
+    tester,
+  ) async {
+    final methods = <String>[];
+    final client = MockClient((request) async {
+      methods.add(request.method);
+      return http.Response(jsonEncode([stored]), 200);
+    });
+    await http.runWithClient(() async {
+      await tester.pumpWidget(
+        const MaterialApp(home: FoodPage(service: FoodService('token'))),
+      );
+      await enterDraft(tester);
+      for (var visit = 0; visit < 2; visit++) {
+        await tapVisible(tester, find.text('History'));
+        expect(find.byType(FoodHistoryPage), findsOneWidget);
+        await tapVisible(tester, find.byKey(const Key('page-back')));
+        expect(find.byType(FoodHistoryPage), findsNothing);
+        expect(find.byType(FoodPage), findsOneWidget);
+        expect(find.text('Add record'), findsOneWidget);
+        expect(find.text('Porridge'), findsOneWidget);
+        expect(find.text('100 g'), findsOneWidget);
+      }
+      expect(methods, ['GET', 'GET']);
+      expect(tester.takeException(), isNull);
+    }, () => client);
+    client.close();
+  });
+
+  testWidgets(
+    'manual form has no History shortcut and back returns to Add record',
+    (tester) async {
+      final client = MockClient((_) async => http.Response('[]', 200));
+      await http.runWithClient(() async {
+        await tester.pumpWidget(
+          const MaterialApp(home: FoodPage(service: FoodService('token'))),
+        );
+        await tapVisible(tester, find.byKey(const Key('add-manually')));
+        expect(find.text('History'), findsNothing);
+        expect(find.byType(FoodHistoryPage), findsNothing);
+        await tapVisible(tester, find.byKey(const Key('page-back')));
+        expect(find.byType(FoodHistoryPage), findsNothing);
+        expect(find.byType(FoodEditor), findsNothing);
+        expect(find.byType(FoodPage), findsOneWidget);
+        expect(find.text('Add record'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }, () => client);
+      client.close();
+    },
+  );
+
+  testWidgets('standalone history back opens Add record', (tester) async {
+    final client = MockClient((_) async => http.Response('[]', 200));
+    await http.runWithClient(() async {
+      await tester.pumpWidget(
+        const MaterialApp(home: FoodHistoryPage(service: FoodService('token'))),
+      );
+      await tester.pumpAndSettle();
+      await tapVisible(tester, find.byKey(const Key('page-back')));
+      expect(find.byType(FoodHistoryPage), findsNothing);
+      expect(find.byType(FoodPage), findsOneWidget);
+      expect(find.text('Add record'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }, () => client);
+    client.close();
+  });
 
   testWidgets('history failure offers retry without claiming diary is empty', (
     tester,

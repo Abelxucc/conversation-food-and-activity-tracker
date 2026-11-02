@@ -7,6 +7,8 @@ import 'food_service.dart';
 import 'food_style.dart';
 
 class FoodPage extends StatefulWidget {
+  static const routeName = '/food/add-record';
+
   const FoodPage({super.key, required this.service, this.initialRecord});
   final FoodService service;
   final FoodRecord? initialRecord;
@@ -274,7 +276,7 @@ class _FoodPageState extends State<FoodPage> {
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          RecordSummary(record: record, saved: _saved != null),
+          RecordSummary(record: record, saved: _saved != null, showTime: true),
           const SizedBox(height: 16),
           if (_error != null) ...[
             Semantics(
@@ -363,13 +365,17 @@ class RecordSummary extends StatelessWidget {
               style: const TextStyle(fontSize: 16, color: FoodStyle.ink),
             ),
           ),
-          Text(
-            saved
-                ? '✓ Saved'
-                : showTime
-                ? '${FoodStyle.date(record.eatenAt)} · ${FoodStyle.time(record.eatenAt)}'
-                : FoodStyle.recordDate(record.eatenAt),
-            style: const TextStyle(color: FoodStyle.muted, fontSize: 12),
+          Flexible(
+            flex: 2,
+            child: Text(
+              saved
+                  ? '✓ Saved'
+                  : showTime
+                  ? '${FoodStyle.date(record.eatenAt)} · ${record.timeSpecified ? FoodStyle.time(record.eatenAt) : 'Time not specified'}'
+                  : FoodStyle.recordDate(record.eatenAt),
+              textAlign: TextAlign.right,
+              style: const TextStyle(color: FoodStyle.muted, fontSize: 12),
+            ),
           ),
         ],
       ),
@@ -381,13 +387,15 @@ class RecordSummary extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
+                flex: 3,
                 child: Text(
                   item.name,
                   style: const TextStyle(fontSize: 16, color: FoodStyle.ink),
                 ),
               ),
               const SizedBox(width: 12),
-              Flexible(
+              Expanded(
+                flex: 2,
                 child: Text(
                   item.amount,
                   textAlign: TextAlign.right,
