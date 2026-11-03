@@ -12,6 +12,7 @@ import 'package:tracktalk/RegistrationPage.dart';
 Future<void> fillForm(
   WidgetTester tester, {
   String confirmation = 'person@example.com',
+  String? phone = '+44 7700 900123',
 }) async {
   await tester.enterText(
     find.byKey(const Key('registration-email')),
@@ -25,10 +26,9 @@ Future<void> fillForm(
     find.byKey(const Key('registration-password')),
     'River-walk-739!',
   );
-  await tester.enterText(
-    find.byKey(const Key('registration-phone')),
-    '+44 7700 900123',
-  );
+  if (phone != null) {
+    await tester.enterText(find.byKey(const Key('registration-phone')), phone);
+  }
   await tester.ensureVisible(find.text('Create account'));
 }
 
@@ -100,7 +100,7 @@ void main() {
     client.close();
   });
 
-  testWidgets('requires every account field on a small screen with keyboard', (
+  testWidgets('requires email and password on a small screen with keyboard', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(320, 568);
@@ -116,12 +116,13 @@ void main() {
     expect(find.text('Enter your email address.'), findsOneWidget);
     expect(find.text('Confirm your email address.'), findsOneWidget);
     expect(find.text('Enter a password.'), findsOneWidget);
-    expect(find.text('Enter your phone number.'), findsOneWidget);
+    expect(find.text('Phone number (optional)'), findsOneWidget);
+    expect(find.text('Enter your phone number.'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
   testWidgets(
-    'checks account details before profile and submits the complete registration last',
+    'checks account details and completes registration without a phone number',
     (tester) async {
       final pending = Completer<http.Response>();
       var calls = 0;
@@ -133,7 +134,7 @@ void main() {
             'email': 'person@example.com',
             'confirm_email': 'person@example.com',
             'password': 'River-walk-739!',
-            'phone_number': '+44 7700 900123',
+            'phone_number': '',
           });
           return Future.value(http.Response('', 204));
         }
@@ -143,7 +144,7 @@ void main() {
           'email': 'person@example.com',
           'confirm_email': 'person@example.com',
           'password': 'River-walk-739!',
-          'phone_number': '+44 7700 900123',
+          'phone_number': '',
           'gender': 'female',
           'height_cm': '172.5',
           'weight_kg': '68.25',
@@ -153,7 +154,7 @@ void main() {
       });
       await http.runWithClient(() async {
         await tester.pumpWidget(const MaterialApp(home: RegistrationPage()));
-        await fillForm(tester);
+        await fillForm(tester, phone: null);
         await tester.tap(find.text('Create account'));
         await tester.pumpAndSettle();
         expect(find.byType(GenderPage), findsOneWidget);

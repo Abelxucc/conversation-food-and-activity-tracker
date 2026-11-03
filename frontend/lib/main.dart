@@ -4,6 +4,7 @@ import 'LoginPage.dart';
 import 'RegistrationPage.dart';
 import 'ReSetPage.dart';
 import 'api_config.dart';
+import 'page_back_button.dart';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -90,7 +91,10 @@ class _ConnectionPageState extends State<ConnectionPage> {
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F8F6),
-      appBar: AppBar(title: const Text('TrackTalk')),
+      appBar: AppBar(
+        title: const Text('TrackTalk'),
+        leading: const PageBackButton(),
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),

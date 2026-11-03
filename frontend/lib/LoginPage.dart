@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'auth_style.dart';
+import 'app_shell.dart';
+import 'food_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -20,6 +22,8 @@ class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _hidePassword = true;
+  bool _busy = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -28,17 +32,35 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _comingSoon(String feature) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text('$feature is coming soon.')));
-  }
-
-  void _submit() {
-    if (_formKey.currentState!.validate()) {
+  Future<void> _submit() async {
+    if (_busy || !_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final token = await FoodService.signIn(
+        _emailController.text,
+        _passwordController.text,
+      );
+      if (!mounted) return;
       TextInput.finishAutofillContext(shouldSave: false);
-      FocusScope.of(context).unfocus();
-      _comingSoon('Sign in');
+      _passwordController.clear();
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          settings: const RouteSettings(name: AppShell.routeName),
+          builder: (_) => AppShell(service: FoodService(token)),
+        ),
+      );
+    } on FoodException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Could not log in. Please try again.');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -101,6 +123,7 @@ class _LoginPageState extends State<LoginPage> {
                       TextFormField(
                         key: const Key('login-email'),
                         controller: _emailController,
+                        enabled: !_busy,
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                         autofillHints: const [
@@ -126,6 +149,7 @@ class _LoginPageState extends State<LoginPage> {
                       TextFormField(
                         key: const Key('login-password'),
                         controller: _passwordController,
+                        enabled: !_busy,
                         obscureText: _hidePassword,
                         textInputAction: TextInputAction.done,
                         autofillHints: const [AutofillHints.password],
@@ -156,10 +180,12 @@ class _LoginPageState extends State<LoginPage> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: () => Navigator.of(context).pushNamed(
-                            '/reset-password',
-                            arguments: _emailController.text.trim(),
-                          ),
+                          onPressed: _busy
+                              ? null
+                              : () => Navigator.of(context).pushNamed(
+                                  '/reset-password',
+                                  arguments: _emailController.text.trim(),
+                                ),
                           style: TextButton.styleFrom(
                             foregroundColor: _green,
                             textStyle: _serif.copyWith(fontSize: 15),
@@ -171,8 +197,21 @@ class _LoginPageState extends State<LoginPage> {
                           child: const Text('Forgot password?'),
                         ),
                       ),
+                      if (_error != null) ...[
+                        Semantics(
+                          liveRegion: true,
+                          child: Text(
+                            _error!,
+                            key: const Key('login-error'),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       FilledButton(
-                        onPressed: _submit,
+                        onPressed: _busy ? null : _submit,
                         style: FilledButton.styleFrom(
                           backgroundColor: _green,
                           foregroundColor: Colors.white,
@@ -185,7 +224,7 @@ class _LoginPageState extends State<LoginPage> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        child: const Text('Log in'),
+                        child: Text(_busy ? 'Logging in…' : 'Log in'),
                       ),
                       const SizedBox(height: 16),
                       Wrap(
@@ -200,10 +239,12 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                           TextButton(
-                            onPressed: () => Navigator.of(context).pushNamed(
-                              '/register',
-                              arguments: _emailController.text.trim(),
-                            ),
+                            onPressed: _busy
+                                ? null
+                                : () => Navigator.of(context).pushNamed(
+                                    '/register',
+                                    arguments: _emailController.text.trim(),
+                                  ),
                             style: TextButton.styleFrom(
                               foregroundColor: const Color(0xFF080C08),
                               textStyle: _serif.copyWith(

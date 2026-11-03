@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'auth_style.dart';
 import 'profile_setup_page.dart';
 import 'registration_service.dart';
+import 'page_back_button.dart';
 
 class RegistrationPage extends StatefulWidget {
   const RegistrationPage({super.key, this.initialEmail = ''});
@@ -89,8 +90,14 @@ class _RegistrationPageState extends State<RegistrationPage> {
     }
   }
 
-  void _backToLogin() =>
-      Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
+  void _backToLogin() {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+    } else {
+      navigator.pushNamedAndRemoveUntil('/', (_) => false);
+    }
+  }
 
   Widget _label(String label) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
@@ -127,6 +134,14 @@ class _RegistrationPageState extends State<RegistrationPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: PageBackButton(
+                      onPressed: _backToLogin,
+                      enabled: !_busy,
+                      color: const Color(0xFF202520),
+                    ),
+                  ),
                   Center(
                     child: Image.asset(
                       'assets/images/Logo2.png',
@@ -274,7 +289,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                               },
                             ),
                             const SizedBox(height: 18),
-                            _label('Phone number'),
+                            _label('Phone number (optional)'),
                             TextFormField(
                               key: const Key('registration-phone'),
                               controller: _phone,
@@ -290,9 +305,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                               onFieldSubmitted: (_) => _submit(),
                               validator: (value) {
                                 final phone = value?.trim() ?? '';
-                                if (phone.isEmpty) {
-                                  return 'Enter your phone number.';
-                                }
+                                if (phone.isEmpty) return null;
                                 final compact = phone.replaceAll(
                                   RegExp(r'[ ()\-.]'),
                                   '',

@@ -39,7 +39,7 @@ class RegistrationSerializer(serializers.Serializer):
     password = serializers.CharField(
         write_only=True, trim_whitespace=False, max_length=4096
     )
-    phone_number = serializers.CharField(max_length=40)
+    phone_number = serializers.CharField(max_length=40, allow_blank=True, default="")
     gender = serializers.ChoiceField(choices=AccountProfile.Gender.choices, required=False)
     height_cm = serializers.DecimalField(max_digits=5, decimal_places=2,
         min_value=30, max_value=300, required=False)
@@ -48,6 +48,8 @@ class RegistrationSerializer(serializers.Serializer):
     age = serializers.IntegerField(min_value=1, max_value=120, required=False)
 
     def validate_phone_number(self, value):
+        if not value:
+            return ""
         # Accept readable formatting, but store only a leading + and digits.
         if not re.fullmatch(r"[+0-9 ()\-.]+", value):
             raise serializers.ValidationError("Enter a valid phone number.")
