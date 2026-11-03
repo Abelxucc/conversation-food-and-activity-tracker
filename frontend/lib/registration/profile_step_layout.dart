@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'auth_style.dart';
+import '../shared/auth_style.dart';
 
 class ProfileStepLayout extends StatelessWidget {
   const ProfileStepLayout({

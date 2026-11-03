@@ -3,9 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'auth_style.dart';
-import 'app_shell.dart';
-import 'food_service.dart';
+import '../shared/auth_style.dart';
+import '../app_shell.dart';
+import '../food/food_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});

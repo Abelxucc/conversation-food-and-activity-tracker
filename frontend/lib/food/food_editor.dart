@@ -1,11 +1,11 @@
 import 'package:flutter/cupertino.dart';
 
 import 'food_amount.dart';
-import 'app_navigation_scope.dart';
+import '../shared/app_navigation_scope.dart';
 import 'food_amount_input.dart';
-import 'food_chrome.dart';
+import '../shared/food_chrome.dart';
 import 'food_service.dart';
-import 'food_style.dart';
+import '../shared/food_style.dart';
 
 class FoodEditor extends StatefulWidget {
   const FoodEditor({super.key, this.initialDraft, this.service, this.onSave});

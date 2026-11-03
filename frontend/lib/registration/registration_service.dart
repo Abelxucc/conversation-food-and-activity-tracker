@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import 'api_config.dart';
+import '../shared/api_config.dart';
 import 'profile_details.dart';
 
 class RegistrationException implements Exception {

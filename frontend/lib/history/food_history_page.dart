@@ -1,11 +1,11 @@
 import 'package:flutter/cupertino.dart';
 
-import 'food_page.dart';
-import 'app_navigation_scope.dart';
-import 'food_service.dart';
-import 'food_style.dart';
-import 'food_editor.dart';
-import 'food_chrome.dart';
+import '../food/food_page.dart';
+import '../shared/app_navigation_scope.dart';
+import '../food/food_service.dart';
+import '../shared/food_style.dart';
+import '../food/food_editor.dart';
+import '../shared/food_chrome.dart';
 import 'food_history_order.dart';
 
 class FoodHistoryPage extends StatefulWidget {

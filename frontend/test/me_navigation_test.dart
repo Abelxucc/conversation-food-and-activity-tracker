@@ -5,13 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:tracktalk/LoginPage.dart';
+import 'package:tracktalk/auth/LoginPage.dart';
 import 'package:tracktalk/app_shell.dart';
-import 'package:tracktalk/food_chrome.dart';
-import 'package:tracktalk/food_editor.dart';
-import 'package:tracktalk/food_history_page.dart';
-import 'package:tracktalk/food_page.dart';
-import 'package:tracktalk/food_service.dart';
+import 'package:tracktalk/shared/food_chrome.dart';
+import 'package:tracktalk/food/food_editor.dart';
+import 'package:tracktalk/history/food_history_page.dart';
+import 'package:tracktalk/food/food_page.dart';
+import 'package:tracktalk/food/food_service.dart';
 
 Future<void> tap(WidgetTester tester, Finder finder) async {
   await tester.ensureVisible(finder);

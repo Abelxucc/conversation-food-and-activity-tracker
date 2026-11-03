@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tracktalk/profile_details.dart';
-import 'package:tracktalk/profile_setup_page.dart';
+import 'package:tracktalk/registration/profile_details.dart';
+import 'package:tracktalk/registration/profile_setup_page.dart';
 
 Future<void> pressContinue(WidgetTester tester, {bool gender = false}) async {
   final button = find.byKey(

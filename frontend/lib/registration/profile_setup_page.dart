@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'GenderPage.dart';
-import 'auth_style.dart';
+import '../shared/auth_style.dart';
 import 'profile_details.dart';
 import 'profile_step_layout.dart';
 import 'registration_service.dart';

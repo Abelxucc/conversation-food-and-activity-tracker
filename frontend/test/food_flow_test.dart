@@ -3,14 +3,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:tracktalk/food_editor.dart';
-import 'package:tracktalk/food_amount.dart';
+import 'package:tracktalk/food/food_editor.dart';
+import 'package:tracktalk/food/food_amount.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:tracktalk/food_page.dart';
-import 'package:tracktalk/food_history_page.dart';
-import 'package:tracktalk/food_service.dart';
+import 'package:tracktalk/food/food_page.dart';
+import 'package:tracktalk/history/food_history_page.dart';
+import 'package:tracktalk/food/food_service.dart';
 
 const stored = {
   'id': 7,

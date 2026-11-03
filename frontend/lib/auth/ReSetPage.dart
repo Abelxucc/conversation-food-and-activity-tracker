@@ -2,9 +2,9 @@
 
 import 'package:flutter/material.dart';
 
-import 'auth_style.dart';
+import '../shared/auth_style.dart';
 import 'password_reset_service.dart';
-import 'page_back_button.dart';
+import '../shared/page_back_button.dart';
 
 class ResetPage extends StatefulWidget {
   const ResetPage({super.key, this.initialEmail = ''});

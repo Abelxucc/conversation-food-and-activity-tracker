@@ -2,7 +2,7 @@ import 'package:flutter/cupertino.dart';
 
 import 'food_amount.dart';
 import 'food_amount_picker.dart';
-import 'food_style.dart';
+import '../shared/food_style.dart';
 
 /// Edits quantity and unit separately while keeping the draft's combined amount.
 class FoodAmountInput extends StatefulWidget {

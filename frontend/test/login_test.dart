@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tracktalk/main.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:tracktalk/food_page.dart';
+import 'package:tracktalk/food/food_page.dart';
 
 void main() {
   testWidgets('validates credentials and signs in', (tester) async {

@@ -1,4 +1,4 @@
-import 'food_service.dart';
+import '../food/food_service.dart';
 
 // These slots determine meal order and position snacks next to untimed meals.
 const _mealSlots = {

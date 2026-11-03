@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tracktalk/food_history_order.dart';
-import 'package:tracktalk/food_service.dart';
+import 'package:tracktalk/history/food_history_order.dart';
+import 'package:tracktalk/food/food_service.dart';
 
 FoodRecord record(
   int id,

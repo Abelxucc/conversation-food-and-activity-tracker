@@ -3,10 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'auth_style.dart';
+import '../shared/auth_style.dart';
 import 'profile_setup_page.dart';
 import 'registration_service.dart';
-import 'page_back_button.dart';
+import '../shared/page_back_button.dart';
 
 class RegistrationPage extends StatefulWidget {
   const RegistrationPage({super.key, this.initialEmail = ''});

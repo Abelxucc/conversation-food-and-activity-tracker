@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import 'api_config.dart';
+import '../shared/api_config.dart';
 
 class PasswordResetException implements Exception {
   const PasswordResetException(this.message);

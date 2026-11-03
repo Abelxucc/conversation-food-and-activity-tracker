@@ -1,11 +1,11 @@
 import 'package:flutter/cupertino.dart';
 
-import 'food_chrome.dart';
-import 'app_navigation_scope.dart';
+import '../shared/food_chrome.dart';
+import '../shared/app_navigation_scope.dart';
 import 'food_editor.dart';
-import 'food_history_page.dart';
+import '../history/food_history_page.dart';
 import 'food_service.dart';
-import 'food_style.dart';
+import '../shared/food_style.dart';
 
 class FoodPage extends StatefulWidget {
   static const routeName = '/food/add-record';

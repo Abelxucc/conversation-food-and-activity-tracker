@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tracktalk/GenderPage.dart';
-import 'package:tracktalk/RegistrationPage.dart';
+import 'package:tracktalk/registration/GenderPage.dart';
+import 'package:tracktalk/registration/RegistrationPage.dart';
 import 'package:tracktalk/main.dart';
 
 void main() {

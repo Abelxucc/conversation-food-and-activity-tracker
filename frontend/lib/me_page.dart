@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
 
-import 'food_style.dart';
+import 'shared/food_style.dart';
 
 class MePage extends StatelessWidget {
   const MePage({

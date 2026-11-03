@@ -1,10 +1,10 @@
 import 'dart:convert';
 
-import 'LoginPage.dart';
-import 'RegistrationPage.dart';
-import 'ReSetPage.dart';
-import 'api_config.dart';
-import 'page_back_button.dart';
+import 'auth/LoginPage.dart';
+import 'registration/RegistrationPage.dart';
+import 'auth/ReSetPage.dart';
+import 'shared/api_config.dart';
+import 'shared/page_back_button.dart';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
