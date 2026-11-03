@@ -49,6 +49,12 @@ Time is now optional in the manual editor and can be cleared. The API persists `
 
 Migration 0006 preserves existing records and their timestamps with `time_specified=True`, also retaining compatibility with older API clients. Earlier versions did not distinguish a chosen time from the default logging time, so old missing times cannot be recovered automatically. Clear an old record's time in the editor if it was not specified.
 
+## Me and navigation
+
+After login, a persistent tab bar animates its selection between Home, Food, Add record, Activity and Me. The food flow uses its own navigator, so switching to Me and back preserves manual input, review drafts and History. Food writes and sign out temporarily disable tab switching. The bar respects the system's reduced-motion setting and hides above an open keyboard.
+
+Me follows the existing rounded-card design. Edit my profile, Settings and About us are disabled and marked “Coming soon”; Home, Food and Activity also show placeholders. Sign out sends an authenticated `POST /api/auth/logout/`, revokes the server token, and clears the authenticated routes before showing a fresh login page. Already-expired tokens can be cleared locally; connection failures keep the session in place and offer retry. Existing food records are preserved.
+
 ## Verification
 
 ```bash

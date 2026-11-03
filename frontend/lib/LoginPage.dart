@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'auth_style.dart';
-import 'food_page.dart';
+import 'app_shell.dart';
 import 'food_service.dart';
 import 'page_back_button.dart';
 
@@ -50,8 +50,8 @@ class _LoginPageState extends State<LoginPage> {
       _passwordController.clear();
       Navigator.of(context).push(
         MaterialPageRoute(
-          settings: const RouteSettings(name: FoodPage.routeName),
-          builder: (_) => FoodPage(service: FoodService(token)),
+          settings: const RouteSettings(name: AppShell.routeName),
+          builder: (_) => AppShell(service: FoodService(token)),
         ),
       );
     } on FoodException catch (error) {

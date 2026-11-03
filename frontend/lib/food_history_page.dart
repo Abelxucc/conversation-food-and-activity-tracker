@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
 import 'food_page.dart';
+import 'app_navigation_scope.dart';
 import 'food_service.dart';
 import 'food_style.dart';
 import 'food_editor.dart';
@@ -80,7 +81,10 @@ class _FoodHistoryPageState extends State<FoodHistoryPage> {
       _error = null;
     });
     try {
-      await widget.service.delete(record.id);
+      await AppNavigationScope.whileBusy(
+        context,
+        () => widget.service.delete(record.id),
+      );
       if (mounted) {
         setState(() => _records.removeWhere((item) => item.id == record.id));
       }
@@ -365,10 +369,11 @@ class _FoodHistoryPageState extends State<FoodHistoryPage> {
                         ],
                       ),
                     ),
-                    FoodNavigation(
-                      highlightAdd: false,
-                      onAdd: busy ? null : _add,
-                    ),
+                    if (!AppNavigationScope.isPresent(context))
+                      FoodNavigation(
+                        highlightAdd: false,
+                        onAdd: busy ? null : _add,
+                      ),
                   ],
                 ),
               ),

@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
 import 'food_chrome.dart';
+import 'app_navigation_scope.dart';
 import 'food_editor.dart';
 import 'food_history_page.dart';
 import 'food_service.dart';
@@ -51,9 +52,9 @@ class _FoodPageState extends State<FoodPage> {
       _error = null;
     });
     try {
-      final saved = await widget.service.save(
-        _draft!,
-        id: widget.initialRecord?.id,
+      final saved = await AppNavigationScope.whileBusy(
+        context,
+        () => widget.service.save(_draft!, id: widget.initialRecord?.id),
       );
       if (mounted) {
         setState(() {
@@ -152,7 +153,8 @@ class _FoodPageState extends State<FoodPage> {
                       ),
                     ),
                     const FoodComposer(),
-                    const FoodNavigation(),
+                    if (!AppNavigationScope.isPresent(context))
+                      const FoodNavigation(),
                   ],
                 ),
               ),

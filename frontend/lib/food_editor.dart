@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
 import 'food_amount.dart';
+import 'app_navigation_scope.dart';
 import 'food_amount_input.dart';
 import 'food_chrome.dart';
 import 'food_service.dart';
@@ -190,7 +191,7 @@ class _FoodEditorState extends State<FoodEditor> {
       _error = null;
     });
     try {
-      await widget.onSave!(draft);
+      await AppNavigationScope.whileBusy(context, () => widget.onSave!(draft));
       if (mounted) Navigator.of(context).pop(draft);
     } on FoodException catch (error) {
       if (mounted) setState(() => _error = error.message);
@@ -465,7 +466,7 @@ class _FoodEditorState extends State<FoodEditor> {
                         child: const Text('Done'),
                       ),
                     )
-                  else
+                  else if (!AppNavigationScope.isPresent(context))
                     const FoodNavigation(highlightAdd: false),
                 ],
               ),

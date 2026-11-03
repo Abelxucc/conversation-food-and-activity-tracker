@@ -6,8 +6,9 @@ import 'package:http/http.dart' as http;
 import 'api_config.dart';
 
 class FoodException implements Exception {
-  const FoodException(this.message);
+  const FoodException(this.message, {this.statusCode});
   final String message;
+  final int? statusCode;
 }
 
 class FoodItem {
@@ -103,6 +104,15 @@ class FoodService {
         .toList();
   }
 
+  Future<void> signOut() async {
+    try {
+      await _request('POST', '/api/auth/logout/', token: token);
+    } on FoodException catch (error) {
+      // An expired or already-revoked login can still be cleared locally.
+      if (error.statusCode != 401) rethrow;
+    }
+  }
+
   Future<FoodRecord> save(FoodDraft draft, {int? id}) async {
     final data = await _request(
       id == null ? 'POST' : 'PUT',
@@ -142,7 +152,10 @@ class FoodService {
         return jsonDecode(response.body);
       }
       if (response.statusCode == 401) {
-        throw const FoodException('Please sign out and log in again.');
+        throw const FoodException(
+          'Please sign out and log in again.',
+          statusCode: 401,
+        );
       }
       if (response.statusCode == 404) {
         throw const FoodException(

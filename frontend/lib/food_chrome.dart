@@ -5,7 +5,7 @@ import 'package:flutter/cupertino.dart';
 import 'food_style.dart';
 import 'page_back_button.dart';
 
-/// Shared layout from the Add record design. Future destinations stay inert.
+/// Shared header layout from the Add record design.
 class FoodHeader extends StatelessWidget {
   const FoodHeader({
     super.key,
@@ -125,93 +125,188 @@ class FoodModeSelector extends StatelessWidget {
   );
 }
 
+enum FoodDestination { home, food, add, activity, me }
+
 class FoodNavigation extends StatelessWidget {
-  const FoodNavigation({super.key, this.highlightAdd = true, this.onAdd});
+  const FoodNavigation({
+    super.key,
+    this.highlightAdd = true,
+    this.onAdd,
+    this.selectedDestination,
+    this.onSelected,
+  });
   final bool highlightAdd;
   final VoidCallback? onAdd;
+  final FoodDestination? selectedDestination;
+  final ValueChanged<FoodDestination>? onSelected;
+
+  FoodDestination? get _selected =>
+      selectedDestination ?? (highlightAdd ? FoodDestination.add : null);
+
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(12, 0, 12, 2),
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(42),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          decoration: BoxDecoration(
-            color: const Color(0xDDF8FAF3),
-            border: Border.all(color: const Color(0xCCFFFFFF)),
-            borderRadius: BorderRadius.circular(42),
-          ),
-          child: Row(
-            children: [
-              _destination('Home', 'Home.png'),
-              _destination('Food', 'food.png'),
-              Expanded(
-                child: Semantics(
-                  key: const Key('nav-add'),
-                  label: 'Add record',
-                  button: true,
-                  enabled: onAdd != null,
-                  selected: highlightAdd,
-                  child: CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    onPressed: onAdd,
-                    child: Center(
-                      child: Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: highlightAdd ? FoodStyle.pale : null,
+  Widget build(BuildContext context) {
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 240);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 2),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(42),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: const Color(0xDDF8FAF3),
+              border: Border.all(color: const Color(0xCCFFFFFF)),
+              borderRadius: BorderRadius.circular(42),
+            ),
+            child: SizedBox(
+              height: 50,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final width =
+                      constraints.maxWidth / FoodDestination.values.length;
+                  final selected = _selected;
+                  return Stack(
+                    children: [
+                      if (selected != null)
+                        AnimatedPositioned(
+                          duration: duration,
+                          curve: Curves.easeOutCubic,
+                          left: width * selected.index + (width - 50) / 2,
+                          top: 0,
+                          width: 50,
+                          height: 50,
+                          child: const DecoratedBox(
+                            key: Key('nav-selection'),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: FoodStyle.pale,
+                            ),
+                          ),
                         ),
-                        child: Icon(
+                      Row(
+                        children: [
+                          _destination(
+                            FoodDestination.home,
+                            'Home',
+                            'Home.png',
+                            duration,
+                          ),
+                          _destination(
+                            FoodDestination.food,
+                            'Food',
+                            'food.png',
+                            duration,
+                          ),
+                          _destination(
+                            FoodDestination.add,
+                            'Add record',
+                            null,
+                            duration,
+                          ),
+                          _destination(
+                            FoodDestination.activity,
+                            'Activity',
+                            'activity.png',
+                            duration,
+                          ),
+                          _destination(
+                            FoodDestination.me,
+                            'Me',
+                            'Me.png',
+                            duration,
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _destination(
+    FoodDestination destination,
+    String label,
+    String? asset,
+    Duration duration,
+  ) {
+    final selected = _selected == destination;
+    final action = onSelected != null
+        ? () => onSelected!(destination)
+        : destination == FoodDestination.add
+        ? onAdd
+        : null;
+    return Expanded(
+      child: Semantics(
+        key: Key('nav-${destination.name}'),
+        label: label,
+        button: true,
+        enabled: action != null,
+        selected: selected,
+        child: ExcludeSemantics(
+          child: CupertinoButton(
+            padding: EdgeInsets.zero,
+            onPressed: action,
+            child: Center(
+              child: AnimatedSlide(
+                duration: duration,
+                curve: Curves.easeOutCubic,
+                offset: selected ? const Offset(0, -.025) : Offset.zero,
+                child: AnimatedScale(
+                  duration: duration,
+                  curve: Curves.easeOutCubic,
+                  scale: selected ? 1.06 : 1,
+                  child: asset == null
+                      ? Icon(
                           CupertinoIcons.plus,
                           size: 29,
-                          color: highlightAdd
-                              ? FoodStyle.forest
-                              : FoodStyle.ink,
+                          color: selected ? FoodStyle.forest : FoodStyle.ink,
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Image.asset(
+                              'assets/images/$asset',
+                              width: 38,
+                              height: 34,
+                              fit: BoxFit.contain,
+                            ),
+                            const SizedBox(height: 1),
+                            AnimatedDefaultTextStyle(
+                              duration: duration,
+                              style: TextStyle(
+                                fontFamily: 'CupertinoSystemText',
+                                fontSize: 10,
+                                color: selected
+                                    ? FoodStyle.forest
+                                    : FoodStyle.ink,
+                                fontWeight: selected
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                              ),
+                              child: Text(
+                                label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ),
-                  ),
                 ),
               ),
-              _destination('Activity', 'activity.png'),
-              _destination('Me', 'Me.png'),
-            ],
+            ),
           ),
         ),
       ),
-    ),
-  );
-
-  Widget _destination(String label, String asset) => Expanded(
-    child: Semantics(
-      key: Key('nav-${label.toLowerCase()}'),
-      label: label,
-      button: true,
-      enabled: false,
-      child: ExcludeSemantics(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              'assets/images/$asset',
-              width: 38,
-              height: 36,
-              fit: BoxFit.contain,
-            ),
-            const SizedBox(height: 1),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 10, color: FoodStyle.ink),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
+    );
+  }
 }
 
 class FoodComposer extends StatelessWidget {
