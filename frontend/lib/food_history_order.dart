@@ -1,15 +1,25 @@
 import 'food_service.dart';
 
+// These slots determine meal order and position snacks next to untimed meals.
+const _mealSlots = {
+  'breakfast': 8 * 60,
+  'brunch': 10 * 60 + 30,
+  'elevenses': 11 * 60,
+  'lunch': 12 * 60,
+  'afternoon_tea': 16 * 60,
+  'dinner': 18 * 60,
+  'supper': 22 * 60,
+};
+
+int _mealSlot(String mealType) => _mealSlots[mealType] ?? 24 * 60;
+
 /// Orders one local day's meals, inserting timed snacks between them.
 List<FoodRecord> sortFoodHistory(Iterable<FoodRecord> records) {
-  const mealOrder = {'breakfast': 0, 'lunch': 1, 'dinner': 2};
   final dailyRecords = records.toList();
   final meals =
       dailyRecords.where((record) => record.mealType != 'snack').toList()
         ..sort((a, b) {
-          final byMeal = (mealOrder[a.mealType] ?? 3).compareTo(
-            mealOrder[b.mealType] ?? 3,
-          );
+          final byMeal = _mealSlot(a.mealType).compareTo(_mealSlot(b.mealType));
           return byMeal != 0 ? byMeal : _compareTime(a, b);
         });
   final timedSnacks =
@@ -49,11 +59,5 @@ int _minutes(FoodRecord record) {
   if (record.timeSpecified) {
     return record.eatenAt.hour * 60 + record.eatenAt.minute;
   }
-  // Sorting anchors only. Do not display these as user-entered meal times.
-  return switch (record.mealType) {
-    'breakfast' => 8 * 60,
-    'lunch' => 12 * 60,
-    'dinner' => 18 * 60,
-    _ => 24 * 60,
-  };
+  return _mealSlot(record.mealType);
 }

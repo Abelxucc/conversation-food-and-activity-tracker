@@ -10,8 +10,12 @@ class FoodStyle {
   static const forest = Color(0xFF336651);
   static const meals = {
     'breakfast': 'Breakfast',
+    'brunch': 'Brunch',
+    'elevenses': 'Morning snack (Elevenses)',
     'lunch': 'Lunch',
+    'afternoon_tea': 'Afternoon tea',
     'dinner': 'Dinner',
+    'supper': 'Supper',
     'snack': 'Snack',
   };
 

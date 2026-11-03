@@ -348,6 +348,10 @@ void main() {
   testWidgets(
     'iOS meal picker commits with Done and keeps draft when cancelled',
     (tester) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(const MaterialApp(home: FoodEditor()));
       await tester.enterText(find.byKey(const Key('food-name-0')), 'Rice');
       await tapVisible(tester, find.byKey(const Key('meal-type')));
@@ -366,7 +370,7 @@ void main() {
           .jumpToItem(2);
       await tester.pumpAndSettle();
       await tapVisible(tester, find.byKey(const Key('picker-done')));
-      expect(find.text('Dinner'), findsOneWidget);
+      expect(find.text('Morning snack (Elevenses)'), findsOneWidget);
       expect(find.text('Rice'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
@@ -779,6 +783,7 @@ void main() {
       if (request.method == 'PUT') {
         expect(request.url.path, '/api/food-records/7/');
         record = {...jsonDecode(request.body) as Map<String, dynamic>, 'id': 7};
+        expect(record['meal_type'], 'afternoon_tea');
         return http.Response(jsonEncode(record), 200);
       }
       return http.Response(jsonEncode([record]), 200);
@@ -795,8 +800,15 @@ void main() {
       await tester.pumpAndSettle();
       await tapVisible(tester, find.text('Edit'));
       await tester.enterText(find.byKey(const Key('food-name-0')), 'Oats');
+      await tapVisible(tester, find.byKey(const Key('meal-type')));
+      tester
+          .widget<CupertinoPicker>(find.byKey(const Key('meal-picker')))
+          .scrollController!
+          .jumpToItem(4);
+      await tapVisible(tester, find.byKey(const Key('picker-done')));
       await tapVisible(tester, find.byKey(const Key('review-record')));
       expect(find.text('Oats'), findsOneWidget);
+      expect(find.text('Afternoon tea'), findsOneWidget);
       expect(methods, ['GET', 'PUT', 'GET']);
       expect(tester.takeException(), isNull);
     }, () => client);

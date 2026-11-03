@@ -109,6 +109,26 @@ void main() {
     },
   );
 
+  test('new meal slots place timed and untimed snacks in order', () {
+    expect(
+      ids([
+        record(1, 'snack', 0, 0, false),
+        record(2, 'supper', 1, 0, false),
+        record(3, 'snack', 21),
+        record(4, 'dinner', 23, 0, false),
+        record(5, 'afternoon_tea', 0, 0, false),
+        record(6, 'snack', 14),
+        record(7, 'lunch', 2, 0, false),
+        record(8, 'elevenses', 3, 0, false),
+        record(9, 'snack', 10, 45),
+        record(10, 'brunch', 2, 0, false),
+        record(11, 'breakfast', 2, 0, false),
+        record(12, 'snack', 22, 30),
+      ]),
+      [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 12, 1],
+    );
+  });
+
   test(
     'repeated meals allow intervening snacks and ties stay deterministic',
     () {

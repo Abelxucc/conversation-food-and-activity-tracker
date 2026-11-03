@@ -1,6 +1,6 @@
 # Manual food logging
 
-The food flow is now: log in → Add manually → enter foods → Review record → Confirm → View history. A meal can contain up to 50 foods. Choose breakfast, lunch, dinner or snack, plus date and time. Quantity and unit are optional together; missing amounts stay unknown. History supports editing and deletion, including an explicit deletion confirmation.
+The food flow is now: log in → Add manually → enter foods → Review record → Confirm → View history. A meal can contain up to 50 foods. Choose Breakfast, Brunch, Morning snack (Elevenses), Lunch, Afternoon tea, Dinner, Supper or Snack. Set the date and add a time if known. Quantity and unit are optional together; missing amounts stay unknown. History supports editing and deletion, including an explicit deletion confirmation.
 
 The previous login button was a placeholder. It now verifies an existing registered email/password through Django and carries an in-memory authentication token on food API requests. Each account can only access its own meals. Restarting the app requires signing in again; saved records remain in SQLite.
 
@@ -43,9 +43,9 @@ The existing SQLite database must be migrated before starting the updated app. S
 
 ### History order and optional times
 
-For each selected local day, History orders main meals as breakfast → lunch → dinner, with records in the same meal ordered by time. Timed snacks are inserted before the next meal with a later time; equal-time snacks follow that meal. Untimed snacks always follow all meals and timed snacks. Ties use ascending record IDs, so server response order and refreshes do not change the layout.
+For each selected local day, History orders meals as Breakfast → Brunch → Morning snack (Elevenses) → Lunch → Afternoon tea → Dinner → Supper, with records in the same meal ordered by time. Timed Snack records are inserted before the next meal with a later time. Equal-time snacks follow that meal. Untimed Snack records always follow all meals and timed snacks. Ties use ascending record IDs, so server response order and refreshes do not change the layout.
 
-Time is now optional in the manual editor and can be cleared. The API persists `time_specified` alongside `eaten_at`; date-only records send local midnight and display “Time not specified”. Midnight is also a valid explicit time when the flag is true. Untimed main meals use 08:00, 12:00 and 18:00 as internal insertion anchors only; these are never displayed or stored as chosen times. Explicitly entered main-meal times do not override the breakfast/lunch/dinner order.
+Time is optional in the manual editor and can be cleared. The API persists `time_specified` alongside `eaten_at`. Date-only records send local midnight and display “Time not specified”. Midnight is also a valid explicit time when the flag is true. Untimed meals use 08:00, 10:30, 11:00, 12:00, 16:00, 18:00 and 22:00 as sorting slots in meal order.
 
 Migration 0006 preserves existing records and their timestamps with `time_specified=True`, also retaining compatibility with older API clients. Earlier versions did not distinguish a chosen time from the default logging time, so old missing times cannot be recovered automatically. Clear an old record's time in the editor if it was not specified.
 

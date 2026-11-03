@@ -42,14 +42,24 @@ class FoodRecordTests(TestCase):
 
     def test_update_replaces_items_and_changes_meal_and_time(self):
         record = self.create_record()
-        replacement = {**self.payload, "meal_type": "lunch", "items": [
+        replacement = {**self.payload, "meal_type": "afternoon_tea", "items": [
             {"name": "Sandwich", "quantity": "2", "unit": "slices"}]}
         response = self.client.put(f'{self.url}{record["id"]}/', replacement, format="json")
         self.assertEqual(response.status_code, 200, response.data)
         saved = self.client.get(f'{self.url}{record["id"]}/').data
-        self.assertEqual(saved["meal_type"], "lunch")
+        self.assertEqual(saved["meal_type"], "afternoon_tea")
         self.assertEqual(saved["items"][0]["name"], "Sandwich")
         self.assertEqual(FoodEntry.objects.count(), 1)
+
+    def test_new_meal_types_can_be_created_and_read_back(self):
+        for meal_type in ("brunch", "elevenses", "afternoon_tea", "supper"):
+            with self.subTest(meal_type=meal_type):
+                response = self.client.post(
+                    self.url, {**self.payload, "meal_type": meal_type}, format="json"
+                )
+                self.assertEqual(response.status_code, 201, response.data)
+                detail = self.client.get(f'{self.url}{response.data["id"]}/')
+                self.assertEqual(detail.data["meal_type"], meal_type)
 
     def test_patch_does_not_require_replacing_items(self):
         record = self.create_record()

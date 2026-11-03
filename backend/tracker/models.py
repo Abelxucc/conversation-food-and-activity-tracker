@@ -7,13 +7,17 @@ from django.db.models.functions import Lower
 class FoodRecord(models.Model):
     class Meal(models.TextChoices):
         BREAKFAST = "breakfast", "Breakfast"
+        BRUNCH = "brunch", "Brunch"
+        ELEVENSES = "elevenses", "Morning snack (Elevenses)"
         LUNCH = "lunch", "Lunch"
+        AFTERNOON_TEA = "afternoon_tea", "Afternoon tea"
         DINNER = "dinner", "Dinner"
+        SUPPER = "supper", "Supper"
         SNACK = "snack", "Snack"
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
                              related_name="food_records")
-    meal_type = models.CharField(max_length=12, choices=Meal.choices)
+    meal_type = models.CharField(max_length=16, choices=Meal.choices)
     eaten_at = models.DateTimeField()
     # Existing clients and records already supply a timestamp; new clients can
     # explicitly distinguish a date-only record from a chosen meal time.

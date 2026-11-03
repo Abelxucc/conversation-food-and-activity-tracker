@@ -79,7 +79,14 @@ class _FoodEditorState extends State<FoodEditor> {
         itemExtent: 42,
         onSelectedItemChanged: (index) => selected = index,
         children: FoodStyle.meals.values
-            .map((meal) => Center(child: Text(meal)))
+            .map(
+              (meal) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: FittedBox(fit: BoxFit.scaleDown, child: Text(meal)),
+                ),
+              ),
+            )
             .toList(),
       ),
     );
