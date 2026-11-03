@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'auth_style.dart';
 import 'app_shell.dart';
 import 'food_service.dart';
-import 'page_back_button.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -89,13 +88,6 @@ class _LoginPageState extends State<LoginPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: PageBackButton(
-                          enabled: !_busy,
-                          color: const Color(0xFF202520),
-                        ),
-                      ),
                       Center(
                         child: Image.asset(
                           'assets/images/Logo2.png',

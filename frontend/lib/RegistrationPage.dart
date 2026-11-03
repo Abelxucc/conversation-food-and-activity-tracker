@@ -289,7 +289,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                               },
                             ),
                             const SizedBox(height: 18),
-                            _label('Phone number'),
+                            _label('Phone number (optional)'),
                             TextFormField(
                               key: const Key('registration-phone'),
                               controller: _phone,
@@ -305,9 +305,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                               onFieldSubmitted: (_) => _submit(),
                               validator: (value) {
                                 final phone = value?.trim() ?? '';
-                                if (phone.isEmpty) {
-                                  return 'Enter your phone number.';
-                                }
+                                if (phone.isEmpty) return null;
                                 final compact = phone.replaceAll(
                                   RegExp(r'[ ()\-.]'),
                                   '',

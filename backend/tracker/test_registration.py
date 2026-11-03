@@ -62,7 +62,7 @@ class RegistrationTests(TestCase):
         url = reverse("validate_registration")
         self.assertEqual(self.client.get(url).status_code, 405)
         self.assertEqual(self.client.post(url, self.data).status_code, 415)
-        for invalid in ({**self.data, "password": "123"}, {**self.data, "phone_number": ""}):
+        for invalid in ({**self.data, "password": "123"}, {**self.data, "phone_number": "123"}):
             self.assertEqual(self.client.post(url, json.dumps(invalid), content_type="application/json").status_code, 400)
         cache.clear()
         for _ in range(10):
@@ -114,13 +114,29 @@ class RegistrationTests(TestCase):
         self.assertEqual(AccountProfile.objects.count(), 0)
         self.assertEqual(get_user_model().objects.count(), 0)
 
-    def test_password_policy_and_required_phone_are_checked_on_server(self):
+    def test_password_policy_is_checked_on_server_without_a_phone(self):
         self.data["password"] = "123"
-        self.assertEqual(self.post().status_code, 400)
-        self.data["password"] = "River-walk-739!"
-        self.data["phone_number"] = ""
+        del self.data["phone_number"]
         self.assertEqual(self.post().status_code, 400)
         self.assertEqual(get_user_model().objects.count(), 0)
+
+    def test_registration_accepts_omitted_and_blank_phone_numbers(self):
+        for index, phone in enumerate((None, "", "   ")):
+            with self.subTest(phone=phone):
+                email = f"person{index}@example.com"
+                data = {**self.data, "email": email, "confirm_email": email}
+                if phone is None:
+                    del data["phone_number"]
+                else:
+                    data["phone_number"] = phone
+                preflight = self.client.post(
+                    reverse("validate_registration"), json.dumps(data),
+                    content_type="application/json",
+                )
+                self.assertEqual(preflight.status_code, 204, preflight.data)
+                response = self.post(data)
+                self.assertEqual(response.status_code, 201, response.data)
+                self.assertEqual(AccountProfile.objects.get(email=email).phone_number, "")
 
     def test_invalid_email_and_phone_are_rejected(self):
         self.data["email"] = self.data["confirm_email"] = "not-an-email"

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tracktalk/main.dart';
 import 'package:http/http.dart' as http;
@@ -53,12 +52,7 @@ void main() {
       );
       await http.runWithClient(() async {
         await tester.pumpWidget(const TrackTalkApp());
-        expect(
-          tester
-              .widget<CupertinoButton>(find.byKey(const Key('page-back')))
-              .onPressed,
-          isNull,
-        );
+        expect(find.byKey(const Key('page-back')), findsNothing);
         await tester.enterText(
           find.byKey(const Key('login-email')),
           'person@example.com',
