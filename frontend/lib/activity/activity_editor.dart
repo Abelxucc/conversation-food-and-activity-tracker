@@ -7,10 +7,16 @@ import '../shared/food_style.dart';
 import 'activity_record.dart';
 
 class ActivityEditor extends StatefulWidget {
-  const ActivityEditor({super.key, this.initialDraft, this.onSave});
+  const ActivityEditor({
+    super.key,
+    this.initialDraft,
+    this.onSave,
+    this.submitLabel,
+  });
 
   final ActivityDraft? initialDraft;
   final Future<void> Function(ActivityDraft)? onSave;
+  final String? submitLabel;
 
   @override
   State<ActivityEditor> createState() => _ActivityEditorState();
@@ -36,7 +42,7 @@ class _ActivityEditorState extends State<ActivityEditor> {
     super.initState();
     final draft = widget.initialDraft;
     _name = TextEditingController(text: draft?.name);
-    _duration = TextEditingController(text: draft?.durationMinutes.toString());
+    _duration = TextEditingController(text: draft?.durationMinutes?.toString());
     _when = draft?.occurredAt ?? DateTime.now();
     _timeSpecified = draft?.timeSpecified ?? false;
   }
@@ -280,9 +286,10 @@ class _ActivityEditorState extends State<ActivityEditor> {
                         color: CupertinoColors.white,
                       )
                     : Text(
-                        widget.onSave == null
-                            ? 'Review record'
-                            : 'Save changes',
+                        widget.submitLabel ??
+                            (widget.onSave == null
+                                ? 'Review record'
+                                : 'Save changes'),
                         style: const TextStyle(fontSize: 14),
                       ),
               ),

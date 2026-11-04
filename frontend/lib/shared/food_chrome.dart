@@ -303,23 +303,23 @@ class FoodComposer extends StatelessWidget {
     super.key,
     this.activity = false,
     this.saved = false,
+    this.showExample = true,
     this.controller,
     this.onSubmit,
-    this.busy = false,
     this.error,
   });
 
   final bool activity;
   final bool saved;
+  final bool showExample;
   final TextEditingController? controller;
   final VoidCallback? onSubmit;
-  final bool busy;
   final String? error;
 
   @override
   Widget build(BuildContext context) => Semantics(
     label: activity ? 'Activity description input' : 'Food description input',
-    enabled: controller != null && !busy,
+    enabled: controller != null && onSubmit != null,
     child: Container(
       margin: const EdgeInsets.fromLTRB(22, 8, 22, 10),
       padding: const EdgeInsets.fromLTRB(18, 16, 14, 14),
@@ -346,10 +346,12 @@ class FoodComposer extends StatelessWidget {
             )
           else
             CupertinoTextField(
-              key: const Key('food-description'),
+              key: Key(activity ? 'activity-description' : 'food-description'),
               controller: controller,
-              enabled: !busy,
-              placeholder: 'Type what you ate...',
+              enabled: onSubmit != null,
+              placeholder: activity
+                  ? 'Type what you did...'
+                  : 'Type what you ate...',
               decoration: null,
               padding: EdgeInsets.zero,
               maxLength: 2000,
@@ -369,15 +371,20 @@ class FoodComposer extends StatelessWidget {
             ),
           const SizedBox(height: 12),
           Row(
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Expanded(
-                child: Text(
-                  activity
-                      ? 'e.g. I went jogging for 30 minutes'
-                      : 'e.g. I had porridge for breakfast',
-                  style: const TextStyle(fontSize: 11, color: FoodStyle.muted),
+              if (showExample)
+                Expanded(
+                  child: Text(
+                    activity
+                        ? 'e.g. I went jogging for 30 minutes'
+                        : 'e.g. I had porridge for breakfast',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: FoodStyle.muted,
+                    ),
+                  ),
                 ),
-              ),
               if (controller == null)
                 Container(
                   width: 36,
@@ -396,14 +403,14 @@ class FoodComposer extends StatelessWidget {
                 ValueListenableBuilder<TextEditingValue>(
                   valueListenable: controller!,
                   builder: (context, value, _) => CupertinoButton(
-                    key: const Key('parse-food'),
+                    key: Key(activity ? 'parse-activity' : 'parse-food'),
                     padding: EdgeInsets.zero,
                     minimumSize: const Size(44, 44),
-                    onPressed: busy || value.text.trim().isEmpty
-                        ? null
-                        : onSubmit,
+                    onPressed: value.text.trim().isEmpty ? null : onSubmit,
                     child: Semantics(
-                      label: 'Review food description',
+                      label: activity
+                          ? 'Send activity message'
+                          : 'Send food message',
                       child: Container(
                         width: 36,
                         height: 36,
@@ -411,15 +418,11 @@ class FoodComposer extends StatelessWidget {
                           shape: BoxShape.circle,
                           color: FoodStyle.forest,
                         ),
-                        child: busy
-                            ? const CupertinoActivityIndicator(
-                                color: CupertinoColors.white,
-                              )
-                            : const Icon(
-                                CupertinoIcons.arrow_up,
-                                size: 25,
-                                color: CupertinoColors.white,
-                              ),
+                        child: const Icon(
+                          CupertinoIcons.arrow_up,
+                          size: 25,
+                          color: CupertinoColors.white,
+                        ),
                       ),
                     ),
                   ),

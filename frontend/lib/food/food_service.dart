@@ -95,8 +95,9 @@ typedef FoodWeek = ({
 });
 
 class FoodService {
-  const FoodService(this.token);
+  const FoodService(this.token, {this.accountEmail});
   final String token;
+  final String? accountEmail;
 
   static Future<String> signIn(String email, String password) async {
     final data = await _request(
@@ -114,21 +115,54 @@ class FoodService {
         .toList();
   }
 
-  Future<FoodDraft> parseFood(String text, DateTime referenceDate) async {
+  Future<({FoodDraft? food, ActivityDraft? activity})> parseRecord(
+    String text,
+    DateTime referenceDate, {
+    required bool activityMode,
+  }) async {
     final data = await _request(
       'POST',
       '/api/food-records/parse/',
       token: token,
-      data: {'text': text, 'reference_date': _dateOnly(referenceDate)},
+      data: {
+        'text': text,
+        'reference_date': _dateOnly(referenceDate),
+        'mode': activityMode ? 'activity' : 'food',
+      },
     ) as Map<String, dynamic>;
+    final date = DateTime.parse(data['date'] as String);
     final time = data['time'] as String?;
-    return FoodDraft(
-      mealType: data['meal_type'] as String? ?? '',
-      eatenAt: DateTime.parse("${data['date']}T${time ?? '00:00'}:00"),
-      timeSpecified: time != null,
-      items: (data['items'] as List)
-          .map((item) => FoodItem.fromJson(item as Map<String, dynamic>))
-          .toList(),
+    final specified = time == null
+        ? null
+        : DateTime.parse("${data['date']}T$time:00");
+    if (data['kind'] == 'activity') {
+      return (
+        food: null,
+        activity: ActivityDraft(
+          name: data['activity_name'] as String,
+          durationMinutes: data['duration_minutes'] as int?,
+          occurredAt: specified ?? date,
+          timeSpecified: specified != null,
+        ),
+      );
+    }
+    return (
+      activity: null,
+      food: FoodDraft(
+        mealType: data['meal_type'] as String? ?? '',
+        eatenAt:
+            specified ??
+            DateTime(
+              date.year,
+              date.month,
+              date.day,
+              referenceDate.hour,
+              referenceDate.minute,
+            ),
+        items: (data['items'] as List)
+            .map((item) => FoodItem.fromJson(item as Map<String, dynamic>))
+            .toList(),
+      ),
     );
   }
 

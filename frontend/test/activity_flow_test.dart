@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:tracktalk/app_shell.dart';
 import 'package:tracktalk/food/food_service.dart';
+import 'package:tracktalk/food/food_page.dart';
 
 const app = MaterialApp(home: AppShell(service: FoodService('activity-token')));
 
@@ -14,6 +15,13 @@ Finder byKey(String value) => find.byKey(Key(value));
 
 Future<void> tap(WidgetTester tester, Finder finder) async {
   await tester.pumpAndSettle();
+  if (finder.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(
+      finder,
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
+  }
   await tester.ensureVisible(finder);
   await tester.pumpAndSettle();
   await tester.tap(finder);
@@ -39,6 +47,126 @@ Future<void> setPicker(
 }
 
 void main() {
+  testWidgets('routes messages both ways and enables direct Activity input', (
+    tester,
+  ) async {
+    const run = 'I went jogging for 30 minutes at 08:15.';
+    const walk = 'I went for a walk.';
+    const tea = 'I had one cup of bubble tea for afternoon tea.';
+    final modes = <String>[];
+    final records = <Map<String, dynamic>>[];
+    final foodRecords = <Map<String, dynamic>>[];
+    final client = MockClient((request) async {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      if (request.url.path == '/api/food-records/parse/') {
+        modes.add(body['mode'] as String);
+        if (body['text'] == tea) {
+          return http.Response(
+            jsonEncode({
+              'meal_type': 'afternoon_tea',
+              'date': body['reference_date'],
+              'time': null,
+              'items': [
+                {'name': 'Bubble tea', 'quantity': 1, 'unit': 'cup'},
+              ],
+            }),
+            200,
+          );
+        }
+        final jogging = body['text'] == run;
+        expect(body['text'], jogging ? run : walk);
+        return http.Response(
+          jsonEncode({
+            'kind': 'activity',
+            'activity_name': jogging ? 'Jogging' : 'Walking',
+            'duration_minutes': jogging ? 30 : null,
+            'date': body['reference_date'],
+            'time': jogging ? '08:15' : null,
+          }),
+          200,
+        );
+      }
+      expect(request.method, 'POST');
+      if (request.url.path == '/api/food-records/') {
+        foodRecords.add(body);
+        return http.Response(jsonEncode({...body, 'id': 1}), 201);
+      }
+      expect(request.url.path, '/api/activity-records/');
+      records.add(body);
+      return http.Response(jsonEncode({...body, 'id': records.length}), 201);
+    });
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: FoodPage(service: FoodService('activity-token')),
+        ),
+      );
+
+      Future<void> send(String mode, String text) async {
+        await tester.enterText(byKey('$mode-description'), text);
+        await tester.pump();
+        await tester.tap(byKey('parse-$mode'));
+        await tester.pump();
+        // The pending turn may enter the viewport during the scroll animation.
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(byKey('food-typing'), findsOneWidget);
+        await tester.pump(const Duration(milliseconds: 600));
+        await tester.pumpAndSettle();
+      }
+
+      await send('food', run);
+      expect(byKey('activity-description'), findsOneWidget);
+      expect(byKey('food-description'), findsNothing);
+      expect(find.text(run), findsOneWidget);
+      expect(find.text('30 minutes'), findsOneWidget);
+      expect(find.text('08:15'), findsOneWidget);
+      expect(find.text('Try an example'), findsNothing);
+      expect(records, isEmpty);
+      await tap(tester, byKey('confirm-activity'));
+      expect(find.text('✓ Your activity has been saved.'), findsOneWidget);
+      expect(records.single['duration_minutes'], 30);
+      expect(records.single['time_specified'], true);
+      await tap(tester, byKey('record-mode-food'));
+      expect(find.text(run), findsNothing);
+      await tap(tester, byKey('record-mode-activity'));
+
+      await send('activity', tea);
+      expect(byKey('food-description'), findsOneWidget);
+      expect(byKey('activity-description'), findsNothing);
+      expect(find.text(tea), findsOneWidget);
+      expect(find.text('Bubble tea'), findsOneWidget);
+      expect(find.text('1 cup'), findsOneWidget);
+      expect(foodRecords, isEmpty);
+      await tap(tester, byKey('confirm-record'));
+      expect(foodRecords.single['meal_type'], 'afternoon_tea');
+      expect(find.text('✓ Your afternoon tea has been saved.'), findsOneWidget);
+
+      await tap(tester, byKey('record-mode-activity'));
+      expect(find.text(tea), findsNothing);
+      await send('activity', walk);
+      expect(find.text(walk), findsOneWidget);
+      expect(find.text('Duration not specified'), findsOneWidget);
+      expect(
+        tester.widget<CupertinoButton>(byKey('confirm-activity')).onPressed,
+        isNull,
+      );
+      await tap(tester, find.text('Edit'));
+      expect(find.text('Edit activity'), findsOneWidget);
+      expect(find.text('Walking'), findsOneWidget);
+      await tester.enterText(byKey('activity-duration'), '20');
+      await tap(tester, byKey('review-activity'));
+      expect(find.text('20 minutes'), findsOneWidget);
+      expect(records.last['duration_minutes'], 20);
+      expect(records.last['time_specified'], false);
+      expect(records, hasLength(2));
+      expect(modes, ['food', 'activity', 'activity']);
+      expect(tester.takeException(), isNull);
+    }, () => client);
+    client.close();
+  });
+
   testWidgets(
     'manual activity is reviewed, saved, filtered, edited and deleted',
     (tester) async {

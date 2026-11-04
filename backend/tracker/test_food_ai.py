@@ -7,7 +7,7 @@ from django.core.cache import cache
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from .models import FoodEntry, FoodRecord
+from .models import ActivityRecord, FoodEntry, FoodRecord
 
 
 class FoodAITests(TestCase):
@@ -75,6 +75,51 @@ class FoodAITests(TestCase):
         result = self.client.post(self.parse_url, self.payload, format="json")
         self.assertEqual(result.status_code, 400, result.data)
         self.assertFalse(FoodEntry.objects.exists())
+
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
+    @patch("tracker.food_ai._ask")
+    def test_activity_input_produces_a_draft_for_either_tab(self, ask):
+        for mode, duration in [("food", 30), ("activity", None)]:
+            with self.subTest(mode=mode):
+                ask.return_value = {
+                    "status": "activity", "date": None, "time": "08:15",
+                    "activity_name": "Jogging", "duration_minutes": duration,
+                    "items": [], "meal_type": None,
+                }
+                payload = {**self.payload, "text": "I went jogging", "mode": mode}
+                result = self.client.post(self.parse_url, payload, format="json")
+                self.assertEqual(result.status_code, 200, result.data)
+                self.assertEqual(result.data, {
+                    "kind": "activity", "activity_name": "Jogging",
+                    "duration_minutes": duration, "date": "2026-07-08", "time": "08:15",
+                })
+        self.assertFalse(ActivityRecord.objects.exists())
+
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
+    @patch("tracker.food_ai._ask")
+    def test_food_input_in_activity_mode_produces_a_food_draft(self, ask):
+        ask.return_value = {
+            "status": "draft", "meal_type": "afternoon_tea", "date": None, "time": None,
+            "items": [{"name": "Bubble tea", "quantity": 1, "unit": "cup"}],
+        }
+        result = self.client.post(self.parse_url, {
+            **self.payload, "text": "I had one cup of bubble tea for afternoon tea", "mode": "activity",
+        }, format="json")
+        self.assertEqual(result.status_code, 200, result.data)
+        self.assertEqual(result.data["meal_type"], "afternoon_tea")
+        self.assertEqual(result.data["items"][0]["name"], "Bubble tea")
+        self.assertFalse(FoodRecord.objects.exists())
+
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
+    @patch("tracker.food_ai._ask")
+    def test_invalid_activity_duration_is_rejected(self, ask):
+        ask.return_value = {
+            "status": "activity", "date": None, "time": None,
+            "activity_name": "Jogging", "duration_minutes": 0,
+        }
+        result = self.client.post(self.parse_url, {**self.payload, "mode": "food"}, format="json")
+        self.assertEqual(result.status_code, 400, result.data)
+        self.assertFalse(ActivityRecord.objects.exists())
 
     @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
     @patch("tracker.food_ai.urlopen")

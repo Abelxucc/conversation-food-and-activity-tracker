@@ -7,12 +7,16 @@ class ActivityDraft {
   });
 
   final String name;
-  final int durationMinutes;
+  final int? durationMinutes;
   final DateTime occurredAt;
   final bool timeSpecified;
 
-  String get durationLabel =>
-      '$durationMinutes ${durationMinutes == 1 ? 'minute' : 'minutes'}';
+  String get durationLabel {
+    final minutes = durationMinutes;
+    return minutes == null
+        ? 'Duration not specified'
+        : '$minutes ${minutes == 1 ? 'minute' : 'minutes'}';
+  }
 
   Map<String, Object?> toJson() => {
     'name': name,
@@ -31,12 +35,15 @@ class ActivityRecord extends ActivityDraft {
   const ActivityRecord({
     required this.id,
     required super.name,
-    required super.durationMinutes,
+    required int durationMinutes,
     required super.occurredAt,
     super.timeSpecified,
-  });
+  }) : super(durationMinutes: durationMinutes);
 
   final int id;
+
+  @override
+  int get durationMinutes => super.durationMinutes!;
 
   factory ActivityRecord.fromJson(Map<String, dynamic> json) => ActivityRecord(
     id: json['id'] as int,

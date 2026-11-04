@@ -40,17 +40,16 @@ class _LoginPageState extends State<LoginPage> {
       _error = null;
     });
     try {
-      final token = await FoodService.signIn(
-        _emailController.text,
-        _passwordController.text,
-      );
+      final email = _emailController.text.trim();
+      final token = await FoodService.signIn(email, _passwordController.text);
       if (!mounted) return;
       TextInput.finishAutofillContext(shouldSave: false);
       _passwordController.clear();
       Navigator.of(context).push(
         MaterialPageRoute(
           settings: const RouteSettings(name: AppShell.routeName),
-          builder: (_) => AppShell(service: FoodService(token)),
+          builder: (_) =>
+              AppShell(service: FoodService(token, accountEmail: email)),
         ),
       );
     } on FoodException catch (error) {

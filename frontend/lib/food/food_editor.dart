@@ -8,10 +8,17 @@ import 'food_service.dart';
 import '../shared/food_style.dart';
 
 class FoodEditor extends StatefulWidget {
-  const FoodEditor({super.key, this.initialDraft, this.service, this.onSave});
+  const FoodEditor({
+    super.key,
+    this.initialDraft,
+    this.service,
+    this.onSave,
+    this.submitLabel,
+  });
   final FoodDraft? initialDraft;
   final FoodService? service;
   final Future<void> Function(FoodDraft)? onSave;
+  final String? submitLabel;
   @override
   State<FoodEditor> createState() => _FoodEditorState();
 }
@@ -440,11 +447,12 @@ class _FoodEditorState extends State<FoodEditor> {
                                                 color: CupertinoColors.white,
                                               )
                                             : Text(
-                                                _editing
-                                                    ? 'Save changes'
-                                                    : _hasName
-                                                    ? 'Review record'
-                                                    : 'Continue',
+                                                widget.submitLabel ??
+                                                    (_editing
+                                                        ? 'Save changes'
+                                                        : _hasName
+                                                        ? 'Review record'
+                                                        : 'Continue'),
                                                 style: const TextStyle(
                                                   fontSize: 14,
                                                   fontWeight: FontWeight.w600,
