@@ -1,5 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 
+import '../activity/activity_details.dart';
+import '../activity/activity_editor.dart';
+import '../activity/activity_record.dart';
 import '../food/food_page.dart';
 import '../shared/app_navigation_scope.dart';
 import '../food/food_service.dart';
@@ -8,10 +13,27 @@ import '../food/food_editor.dart';
 import '../shared/food_chrome.dart';
 import 'food_history_order.dart';
 
+enum HistoryFilter {
+  all('All'),
+  food('Food'),
+  activity('Activity');
+
+  const HistoryFilter(this.label);
+  final String label;
+}
+
 class FoodHistoryPage extends StatefulWidget {
-  const FoodHistoryPage({super.key, required this.service, this.initialDate});
+  const FoodHistoryPage({
+    super.key,
+    required this.service,
+    this.initialDate,
+    this.initialFilter = HistoryFilter.all,
+    this.onDestinationSelected,
+  });
   final FoodService service;
   final DateTime? initialDate;
+  final HistoryFilter initialFilter;
+  final ValueChanged<FoodDestination>? onDestinationSelected;
 
   @override
   State<FoodHistoryPage> createState() => _FoodHistoryPageState();
@@ -19,36 +41,56 @@ class FoodHistoryPage extends StatefulWidget {
 
 class _FoodHistoryPageState extends State<FoodHistoryPage> {
   List<FoodRecord> _records = [];
-  bool _loading = true;
+  List<ActivityRecord> _activities = [];
+  bool _loading = false;
   String? _error;
-  int? _deleting;
+  String? _foodError;
+  String? _activityError;
+  Object? _deleting;
   late DateTime _date;
-  String _filter = 'All';
+  late HistoryFilter _filter;
 
   @override
   void initState() {
     super.initState();
     final date = widget.initialDate ?? DateTime.now();
     _date = DateTime(date.year, date.month, date.day);
+    _filter = widget.initialFilter;
     _load();
   }
 
   Future<void> _load() async {
+    if (_loading || _deleting != null) return;
     setState(() {
       _loading = true;
       _error = null;
+      _foodError = null;
+      _activityError = null;
     });
+    final (food, activity) = await (
+      _loadRecords(widget.service.list, 'food records'),
+      _loadRecords(widget.service.listActivities, 'activity records'),
+    ).wait;
+    if (!mounted) return;
+    setState(() {
+      _records = food.records ?? _records;
+      _activities = activity.records ?? _activities;
+      _foodError = food.error;
+      _activityError = activity.error;
+      _loading = false;
+    });
+  }
+
+  Future<({List<T>? records, String? error})> _loadRecords<T>(
+    Future<List<T>> Function() load,
+    String label,
+  ) async {
     try {
-      final records = await widget.service.list();
-      if (mounted) setState(() => _records = records);
+      return (records: await load(), error: null);
     } on FoodException catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      return (records: null, error: error.message);
     } catch (_) {
-      if (mounted) {
-        setState(() => _error = 'Could not load history. Please try again.');
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
+      return (records: null, error: 'Could not load $label. Please try again.');
     }
   }
 
@@ -67,26 +109,53 @@ class _FoodHistoryPageState extends State<FoodHistoryPage> {
     if (mounted) await _load();
   }
 
-  Future<void> _delete(FoodRecord record) async {
+  Future<void> _editActivity(ActivityRecord record) async {
+    final updated = await Navigator.of(context).push<ActivityDraft>(
+      CupertinoPageRoute(
+        builder: (_) => ActivityEditor(
+          initialDraft: record,
+          onSave: (draft) async {
+            await widget.service.saveActivity(draft, id: record.id);
+          },
+        ),
+      ),
+    );
+    if (mounted && updated != null) await _load();
+  }
+
+  Future<void> _delete(Object record) async {
+    final message = switch (record) {
+      FoodRecord() =>
+        '${FoodStyle.meals[record.mealType]} · ${FoodStyle.date(record.eatenAt)}\nThis will remove all foods in this record.',
+      ActivityRecord() =>
+        '${record.name} · ${FoodStyle.date(record.occurredAt)}\nThis will remove this activity.',
+      _ => throw ArgumentError.value(record),
+    };
     final confirmed = await FoodStyle.confirm(
       context,
       title: 'Delete this record?',
       action: 'Delete',
-      message:
-          '${FoodStyle.meals[record.mealType]} · ${FoodStyle.date(record.eatenAt)}\nThis will remove all foods in this record.',
+      message: message,
     );
-    if (!mounted || confirmed != true) return;
+    if (!mounted || confirmed != true || _deleting != null) return;
     setState(() {
-      _deleting = record.id;
+      _deleting = record;
       _error = null;
     });
     try {
       await AppNavigationScope.whileBusy(
         context,
-        () => widget.service.delete(record.id),
+        () => switch (record) {
+          FoodRecord() => widget.service.delete(record.id),
+          ActivityRecord() => widget.service.deleteActivity(record.id),
+          _ => throw ArgumentError.value(record),
+        },
       );
       if (mounted) {
-        setState(() => _records.removeWhere((item) => item.id == record.id));
+        setState(() {
+          _records.remove(record);
+          _activities.remove(record);
+        });
       }
     } on FoodException catch (error) {
       if (mounted) setState(() => _error = error.message);
@@ -101,16 +170,25 @@ class _FoodHistoryPageState extends State<FoodHistoryPage> {
     }
   }
 
-  List<FoodRecord> get _visibleRecords => _filter == 'Activity'
-      ? []
-      : sortFoodHistory(
-          _records.where((record) {
-            final date = record.eatenAt;
-            return date.year == _date.year &&
-                date.month == _date.month &&
-                date.day == _date.day;
-          }),
-        );
+  bool _isSelectedDate(DateTime date) =>
+      date.year == _date.year &&
+      date.month == _date.month &&
+      date.day == _date.day;
+
+  List<Object> get _visibleRecords => sortRecordHistory(
+    _filter == HistoryFilter.activity
+        ? []
+        : _records.where((record) => _isSelectedDate(record.eatenAt)),
+    _filter == HistoryFilter.food
+        ? []
+        : _activities.where((record) => _isSelectedDate(record.occurredAt)),
+  );
+
+  String? get _visibleLoadError => switch (_filter) {
+    HistoryFilter.all => _foodError ?? _activityError,
+    HistoryFilter.food => _foodError,
+    HistoryFilter.activity => _activityError,
+  };
 
   void _changeDate(int days) => setState(() {
     _date = DateTime(_date.year, _date.month, _date.day + days);
@@ -138,7 +216,9 @@ class _FoodHistoryPageState extends State<FoodHistoryPage> {
   void _back() {
     if (_deleting != null) return;
     final navigator = Navigator.of(context);
-    if (navigator.canPop()) {
+    if (widget.onDestinationSelected != null) {
+      navigator.pop();
+    } else if (navigator.canPop()) {
       navigator.popUntil(
         (route) => route.settings.name == FoodPage.routeName || route.isFirst,
       );
@@ -147,16 +227,28 @@ class _FoodHistoryPageState extends State<FoodHistoryPage> {
     }
   }
 
-  void _add() => Navigator.of(context).pushReplacement<void, void>(
-    CupertinoPageRoute(
-      settings: const RouteSettings(name: FoodPage.routeName),
-      builder: (_) => FoodPage(service: widget.service),
-    ),
-  );
+  void _add() {
+    final select = widget.onDestinationSelected;
+    if (select != null) {
+      select(FoodDestination.add);
+      return;
+    }
+    Navigator.of(context).pushReplacement<void, void>(
+      CupertinoPageRoute(
+        settings: const RouteSettings(name: FoodPage.routeName),
+        builder: (_) => FoodPage(
+          service: widget.service,
+          startWithActivity: _filter == HistoryFilter.activity,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final records = _visibleRecords;
+    final loadError = _visibleLoadError;
+    final error = _error ?? loadError;
     const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     final busy = _deleting != null;
     return FoodStyle.theme(
@@ -220,19 +312,14 @@ class _FoodHistoryPageState extends State<FoodHistoryPage> {
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              for (final filter in [
-                                'All',
-                                'Food',
-                                'Activity',
-                              ]) ...[
-                                if (filter != 'All') const SizedBox(width: 8),
+                              for (final filter in HistoryFilter.values) ...[
+                                if (filter != HistoryFilter.all)
+                                  const SizedBox(width: 8),
                                 Expanded(
                                   child: Semantics(
                                     selected: _filter == filter,
                                     child: CupertinoButton(
-                                      key: Key(
-                                        'history-filter-${filter.toLowerCase()}',
-                                      ),
+                                      key: Key('history-filter-${filter.name}'),
                                       color: _filter == filter
                                           ? FoodStyle.green
                                           : FoodStyle.pale,
@@ -246,7 +333,7 @@ class _FoodHistoryPageState extends State<FoodHistoryPage> {
                                               () => _filter = filter,
                                             ),
                                       child: Text(
-                                        filter,
+                                        filter.label,
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w600,
@@ -281,11 +368,11 @@ class _FoodHistoryPageState extends State<FoodHistoryPage> {
                                   const Center(
                                     child: CupertinoActivityIndicator(),
                                   ),
-                                if (_error != null) ...[
+                                if (error != null) ...[
                                   Semantics(
                                     liveRegion: true,
                                     child: Text(
-                                      _error!,
+                                      error,
                                       key: const Key('history-error'),
                                       style: const TextStyle(
                                         fontSize: 13,
@@ -298,7 +385,9 @@ class _FoodHistoryPageState extends State<FoodHistoryPage> {
                                     child: const Text('Try again'),
                                   ),
                                 ],
-                                if (!_loading && _error == null) ...[
+                                if (!_loading &&
+                                    (loadError == null ||
+                                        records.isNotEmpty)) ...[
                                   Text(
                                     '${records.length} ${records.length == 1 ? 'record' : 'records'}',
                                     key: const Key('history-count'),
@@ -317,16 +406,20 @@ class _FoodHistoryPageState extends State<FoodHistoryPage> {
                                               CrossAxisAlignment.stretch,
                                           children: [
                                             Text(
-                                              _filter == 'Activity'
-                                                  ? 'No activity records yet.'
-                                                  : 'No food records for this day.',
+                                              switch (_filter) {
+                                                HistoryFilter.activity =>
+                                                  'No activity records yet.',
+                                                HistoryFilter.food => 'No food records for this day.',
+                                                HistoryFilter.all =>
+                                                  'No records for this day.',
+                                              },
                                               style: const TextStyle(
                                                 fontSize: 15,
                                               ),
                                             ),
                                             const SizedBox(height: 8),
                                             Text(
-                                              _filter == 'Activity'
+                                              _filter == HistoryFilter.activity
                                                   ? 'Your saved activities will appear here.'
                                                   : 'Choose another date or add a record.',
                                               style: const TextStyle(
@@ -343,7 +436,15 @@ class _FoodHistoryPageState extends State<FoodHistoryPage> {
                                   for (final record in records)
                                     Padding(
                                       padding: const EdgeInsets.only(bottom: 8),
-                                      child: _recordCard(record),
+                                      child: switch (record) {
+                                        FoodRecord() => _recordCard(record),
+                                        ActivityRecord() => _activityCard(
+                                          record,
+                                        ),
+                                        _ => throw StateError(
+                                          'Unexpected record type',
+                                        ),
+                                      },
                                     ),
                                 const SizedBox(height: 2),
                                 CupertinoButton(
@@ -373,6 +474,13 @@ class _FoodHistoryPageState extends State<FoodHistoryPage> {
                       FoodNavigation(
                         highlightAdd: false,
                         onAdd: busy ? null : _add,
+                        onSelected: busy ? null : widget.onDestinationSelected,
+                        selectedDestination:
+                            widget.onDestinationSelected == null
+                            ? null
+                            : _filter == HistoryFilter.activity
+                            ? FoodDestination.activity
+                            : FoodDestination.food,
                       ),
                   ],
                 ),
@@ -452,26 +560,49 @@ class _FoodHistoryPageState extends State<FoodHistoryPage> {
           style: const TextStyle(fontSize: 11, color: FoodStyle.muted),
         ),
         const SizedBox(height: 8),
+        _recordActions(record, () => _edit(record)),
+      ],
+    ),
+  );
+
+  Widget _activityCard(ActivityRecord record) => FoodStyle.card(
+    Column(
+      key: Key('activity-history-${record.id}'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: _recordAction(
-                'Edit',
-                _deleting == null ? () => _edit(record) : null,
-              ),
+              child: Text(record.name, style: const TextStyle(fontSize: 16)),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              flex: 2,
-              child: _recordAction(
-                _deleting == record.id ? 'Deleting…' : 'Delete',
-                _deleting == null ? () => _delete(record) : null,
-              ),
+            const SizedBox(width: 8),
+            const Text(
+              'Activity',
+              style: TextStyle(fontSize: 12, color: FoodStyle.muted),
             ),
           ],
         ),
+        const SizedBox(height: 8),
+        ActivityDetails(record: record, showName: false),
+        const SizedBox(height: 8),
+        _recordActions(record, () => _editActivity(record)),
       ],
     ),
+  );
+
+  Widget _recordActions(Object record, VoidCallback edit) => Row(
+    children: [
+      Expanded(child: _recordAction('Edit', _deleting == null ? edit : null)),
+      const SizedBox(width: 10),
+      Expanded(
+        flex: 2,
+        child: _recordAction(
+          _deleting == record ? 'Deleting…' : 'Delete',
+          _deleting == null ? () => _delete(record) : null,
+        ),
+      ),
+    ],
   );
 
   Widget _recordAction(String label, VoidCallback? onPressed) =>

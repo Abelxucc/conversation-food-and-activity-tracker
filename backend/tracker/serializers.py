@@ -1,7 +1,7 @@
 from django.db import transaction
 from rest_framework import serializers
 
-from .models import FoodEntry, FoodRecord
+from .models import ActivityRecord, FoodEntry, FoodRecord
 
 
 class FoodEntrySerializer(serializers.ModelSerializer):
@@ -59,3 +59,10 @@ class FoodRecordSerializer(serializers.ModelSerializer):
             FoodEntry(record=record, eaten_at=record.eaten_at, **item)
             for item in items
         ])
+
+
+class ActivityRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ActivityRecord
+        fields = ["id", "name", "duration_minutes", "occurred_at", "time_specified", "created_at"]
+        read_only_fields = ["id", "created_at"]

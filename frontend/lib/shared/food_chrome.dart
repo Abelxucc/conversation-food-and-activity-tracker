@@ -73,7 +73,11 @@ class FoodHeader extends StatelessWidget {
 }
 
 class FoodModeSelector extends StatelessWidget {
-  const FoodModeSelector({super.key});
+  const FoodModeSelector({super.key, this.activity = false, this.onChanged});
+
+  final bool activity;
+  final ValueChanged<bool>? onChanged;
+
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(3),
@@ -81,48 +85,33 @@ class FoodModeSelector extends StatelessWidget {
       color: FoodStyle.pale,
       borderRadius: BorderRadius.circular(16),
     ),
-    child: Row(
-      children: [
-        Expanded(
-          child: Semantics(
-            selected: true,
-            label: 'Food',
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 7),
-              decoration: BoxDecoration(
-                color: FoodStyle.surface,
-                borderRadius: BorderRadius.circular(13),
-              ),
-              child: const Text(
-                'Food',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: FoodStyle.forest,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ),
-        Expanded(
-          child: Semantics(
-            button: true,
-            enabled: false,
-            child: Text(
-              'Activity',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: FoodStyle.muted,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ),
-      ],
-    ),
+    child: Row(children: [_choice('Food', false), _choice('Activity', true)]),
   );
+
+  Widget _choice(String label, bool choice) {
+    final selected = activity == choice;
+    return Expanded(
+      child: Semantics(
+        selected: selected,
+        child: CupertinoButton(
+          key: Key('record-mode-${label.toLowerCase()}'),
+          minimumSize: const Size(0, 36),
+          padding: const EdgeInsets.symmetric(vertical: 7),
+          color: selected ? FoodStyle.surface : null,
+          borderRadius: BorderRadius.circular(13),
+          onPressed: onChanged == null ? null : () => onChanged!(choice),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? FoodStyle.forest : FoodStyle.muted,
+              fontSize: 14,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 enum FoodDestination { home, food, add, activity, me }
@@ -310,11 +299,27 @@ class FoodNavigation extends StatelessWidget {
 }
 
 class FoodComposer extends StatelessWidget {
-  const FoodComposer({super.key});
+  const FoodComposer({
+    super.key,
+    this.activity = false,
+    this.saved = false,
+    this.controller,
+    this.onSubmit,
+    this.busy = false,
+    this.error,
+  });
+
+  final bool activity;
+  final bool saved;
+  final TextEditingController? controller;
+  final VoidCallback? onSubmit;
+  final bool busy;
+  final String? error;
+
   @override
   Widget build(BuildContext context) => Semantics(
-    label: 'Food description input',
-    enabled: false,
+    label: activity ? 'Activity description input' : 'Food description input',
+    enabled: controller != null && !busy,
     child: Container(
       margin: const EdgeInsets.fromLTRB(22, 8, 22, 10),
       padding: const EdgeInsets.fromLTRB(18, 16, 14, 14),
@@ -332,32 +337,93 @@ class FoodComposer extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Type what you ate...',
-            style: TextStyle(fontSize: 17, color: FoodStyle.muted),
-          ),
+          if (controller == null)
+            Text(
+              activity
+                  ? (saved ? 'Add another detail...' : 'Type what you did...')
+                  : 'Type what you ate...',
+              style: const TextStyle(fontSize: 17, color: FoodStyle.muted),
+            )
+          else
+            CupertinoTextField(
+              key: const Key('food-description'),
+              controller: controller,
+              enabled: !busy,
+              placeholder: 'Type what you ate...',
+              decoration: null,
+              padding: EdgeInsets.zero,
+              maxLength: 2000,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => onSubmit?.call(),
+            ),
+          if (error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                error!,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: CupertinoColors.destructiveRed,
+                ),
+              ),
+            ),
           const SizedBox(height: 12),
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'e.g. I had porridge for breakfast',
-                  style: TextStyle(fontSize: 11, color: FoodStyle.muted),
+                  activity
+                      ? 'e.g. I went jogging for 30 minutes'
+                      : 'e.g. I had porridge for breakfast',
+                  style: const TextStyle(fontSize: 11, color: FoodStyle.muted),
                 ),
               ),
-              Container(
-                width: 36,
-                height: 36,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: FoodStyle.forest,
+              if (controller == null)
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: FoodStyle.forest,
+                  ),
+                  child: const Icon(
+                    CupertinoIcons.arrow_up,
+                    size: 25,
+                    color: CupertinoColors.white,
+                  ),
+                )
+              else
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: controller!,
+                  builder: (context, value, _) => CupertinoButton(
+                    key: const Key('parse-food'),
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(44, 44),
+                    onPressed: busy || value.text.trim().isEmpty
+                        ? null
+                        : onSubmit,
+                    child: Semantics(
+                      label: 'Review food description',
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: FoodStyle.forest,
+                        ),
+                        child: busy
+                            ? const CupertinoActivityIndicator(
+                                color: CupertinoColors.white,
+                              )
+                            : const Icon(
+                                CupertinoIcons.arrow_up,
+                                size: 25,
+                                color: CupertinoColors.white,
+                              ),
+                      ),
+                    ),
+                  ),
                 ),
-                child: const Icon(
-                  CupertinoIcons.arrow_up,
-                  size: 25,
-                  color: CupertinoColors.white,
-                ),
-              ),
             ],
           ),
         ],

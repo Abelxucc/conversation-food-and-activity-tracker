@@ -6,8 +6,8 @@ from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIV
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import FoodEntry, FoodRecord
-from .serializers import FoodEntrySerializer, FoodRecordSerializer
+from .models import ActivityRecord, FoodEntry, FoodRecord
+from .serializers import ActivityRecordSerializer, FoodEntrySerializer, FoodRecordSerializer
 
 
 @require_GET
@@ -15,9 +15,15 @@ def health(request):
     return JsonResponse({"status": "ok", "service": "TrackTalk API"})
 
 
-class OwnedFoodRecords:
+class OwnedRecords:
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class OwnedFoodRecords(OwnedRecords):
     serializer_class = FoodRecordSerializer
 
     def get_queryset(self):
@@ -25,11 +31,25 @@ class OwnedFoodRecords:
 
 
 class FoodRecords(OwnedFoodRecords, ListCreateAPIView):
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+    pass
 
 
 class FoodRecordDetail(OwnedFoodRecords, RetrieveUpdateDestroyAPIView):
+    pass
+
+
+class OwnedActivityRecords(OwnedRecords):
+    serializer_class = ActivityRecordSerializer
+
+    def get_queryset(self):
+        return ActivityRecord.objects.filter(user=self.request.user)
+
+
+class ActivityRecords(OwnedActivityRecords, ListCreateAPIView):
+    pass
+
+
+class ActivityRecordDetail(OwnedActivityRecords, RetrieveUpdateDestroyAPIView):
     pass
 
 

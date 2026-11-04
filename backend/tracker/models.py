@@ -28,6 +28,22 @@ class FoodRecord(models.Model):
         ordering = ["-eaten_at", "-id"]
 
 
+class ActivityRecord(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="activity_records"
+    )
+    name = models.CharField(max_length=200)
+    duration_minutes = models.PositiveIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(2147483647)]
+    )
+    occurred_at = models.DateTimeField()
+    time_specified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-occurred_at", "-id"]
+
+
 class FoodEntry(models.Model):
     # Null preserves old, unowned development entries during migration.
     record = models.ForeignKey(FoodRecord, on_delete=models.CASCADE,

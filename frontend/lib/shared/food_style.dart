@@ -133,11 +133,32 @@ class FoodStyle {
     child: child,
   );
 
+  static Widget secondary({
+    Key? key,
+    required String label,
+    required VoidCallback? onPressed,
+  }) => CupertinoButton(
+    key: key,
+    color: pale,
+    borderRadius: BorderRadius.circular(11),
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    onPressed: onPressed,
+    child: Text(
+      label,
+      style: const TextStyle(
+        color: forest,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
+
   static Future<bool?> confirm(
     BuildContext context, {
     required String title,
     required String message,
     required String action,
+    String cancelLabel = 'Cancel',
   }) => showCupertinoDialog<bool>(
     context: context,
     builder: (context) => theme(
@@ -147,7 +168,7 @@ class FoodStyle {
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(cancelLabel),
           ),
           CupertinoDialogAction(
             isDestructiveAction: true,

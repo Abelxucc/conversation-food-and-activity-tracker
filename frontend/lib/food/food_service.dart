@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../activity/activity_record.dart';
 import '../shared/api_config.dart';
 
 class FoodException implements Exception {
@@ -84,6 +85,15 @@ class FoodRecord extends FoodDraft {
   );
 }
 
+typedef FoodTip = ({String title, String body, String sourceUrl});
+typedef FoodWeek = ({
+  DateTime start,
+  DateTime end,
+  int daysLogged,
+  Map<String, List<String>> groups,
+  FoodTip? tip,
+});
+
 class FoodService {
   const FoodService(this.token);
   final String token;
@@ -103,6 +113,53 @@ class FoodService {
         .map((record) => FoodRecord.fromJson(record as Map<String, dynamic>))
         .toList();
   }
+
+  Future<FoodDraft> parseFood(String text, DateTime referenceDate) async {
+    final data = await _request(
+      'POST',
+      '/api/food-records/parse/',
+      token: token,
+      data: {'text': text, 'reference_date': _dateOnly(referenceDate)},
+    ) as Map<String, dynamic>;
+    final time = data['time'] as String?;
+    return FoodDraft(
+      mealType: data['meal_type'] as String? ?? '',
+      eatenAt: DateTime.parse("${data['date']}T${time ?? '00:00'}:00"),
+      timeSpecified: time != null,
+      items: (data['items'] as List)
+          .map((item) => FoodItem.fromJson(item as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  Future<FoodWeek> week(DateTime date) async {
+    final data = await _request(
+      'GET',
+      '/api/food-recommendations/?date=${_dateOnly(date)}',
+      token: token,
+    ) as Map<String, dynamic>;
+    final groups = (data['groups'] as List).cast<Map<String, dynamic>>();
+    final recommendation = data['recommendation'] as Map<String, dynamic>?;
+    return (
+      start: DateTime.parse(data['week_start'] as String),
+      end: DateTime.parse(data['week_end'] as String),
+      daysLogged: data['days_logged'] as int,
+      groups: {
+        for (final group in groups)
+          group['label'] as String: (group['foods'] as List).cast<String>(),
+      },
+      tip: recommendation == null
+          ? null
+          : (
+              title: recommendation['title'] as String,
+              body: recommendation['body'] as String,
+              sourceUrl: recommendation['source_url'] as String,
+            ),
+    );
+  }
+
+  static String _dateOnly(DateTime value) =>
+      value.toIso8601String().split('T').first;
 
   Future<void> signOut() async {
     try {
@@ -125,6 +182,29 @@ class FoodService {
 
   Future<void> delete(int id) async {
     await _request('DELETE', '/api/food-records/$id/', token: token);
+  }
+
+  Future<List<ActivityRecord>> listActivities() async {
+    final data = await _request('GET', '/api/activity-records/', token: token);
+    return (data as List)
+        .map(
+          (record) => ActivityRecord.fromJson(record as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
+  Future<ActivityRecord> saveActivity(ActivityDraft draft, {int? id}) async {
+    final data = await _request(
+      id == null ? 'POST' : 'PUT',
+      '/api/activity-records/${id == null ? '' : '$id/'}',
+      token: token,
+      data: draft.toJson(),
+    );
+    return ActivityRecord.fromJson(data as Map<String, dynamic>);
+  }
+
+  Future<void> deleteActivity(int id) async {
+    await _request('DELETE', '/api/activity-records/$id/', token: token);
   }
 
   static Future<Object?> _request(
@@ -167,7 +247,8 @@ class FoodService {
           'Too many attempts. Please wait a minute and try again.',
         );
       }
-      if (response.statusCode == 400) {
+      if (response.statusCode == 400 ||
+          (response.statusCode == 503 && path == '/api/food-records/parse/')) {
         final body = jsonDecode(response.body);
         final messages = _messages(body).toList();
         throw FoodException(
@@ -178,8 +259,10 @@ class FoodService {
         'Could not save or load your record. Please try again.',
       );
     } on TimeoutException {
-      throw const FoodException(
-        'Connection timed out. Check history before saving again.',
+      throw FoodException(
+        path == '/api/food-records/parse/'
+            ? 'Could not read that record in time. Try again or add it manually.'
+            : 'Connection timed out. Check history before saving again.',
       );
     } on http.ClientException {
       throw const FoodException(

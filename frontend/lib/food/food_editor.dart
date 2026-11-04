@@ -48,7 +48,8 @@ class _FoodEditorState extends State<FoodEditor> {
   @override
   void initState() {
     super.initState();
-    _meal = widget.initialDraft?.mealType;
+    final meal = widget.initialDraft?.mealType;
+    _meal = FoodStyle.meals.containsKey(meal) ? meal : null;
     _eatenAt = widget.initialDraft?.eatenAt ?? DateTime.now();
     _timeSpecified = widget.initialDraft?.timeSpecified ?? false;
     _items =

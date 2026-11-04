@@ -1,8 +1,11 @@
 import 'package:flutter/cupertino.dart';
 
 import 'auth/LoginPage.dart';
+import 'HomePage.dart';
+import 'history/food_history_page.dart';
 import 'shared/app_navigation_scope.dart';
 import 'shared/food_chrome.dart';
+import 'food/food_diary_page.dart';
 import 'food/food_page.dart';
 import 'food/food_service.dart';
 import 'shared/food_style.dart';
@@ -20,7 +23,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   final _foodNavigator = GlobalKey<NavigatorState>();
-  FoodDestination _selected = FoodDestination.add;
+  FoodDestination _selected = FoodDestination.home;
   int _pendingWrites = 0;
   bool _signingOut = false;
   String? _error;
@@ -66,6 +69,21 @@ class _AppShellState extends State<AppShell> {
     builder: (_) => FoodPage(service: widget.service),
   );
 
+  Future<void> _openHistory(DateTime date, HistoryFilter filter) =>
+      Navigator.of(context).push<void>(
+        CupertinoPageRoute(
+          builder: (routeContext) => FoodHistoryPage(
+            service: widget.service,
+            initialDate: date,
+            initialFilter: filter,
+            onDestinationSelected: (destination) {
+              Navigator.of(routeContext).pop();
+              _select(destination);
+            },
+          ),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) => FoodStyle.theme(
     PopScope(
@@ -92,13 +110,17 @@ class _AppShellState extends State<AppShell> {
                       child: IndexedStack(
                         index: _selected.index,
                         children: [
-                          const _ComingSoonPage(
-                            title: 'Home',
-                            icon: CupertinoIcons.house,
+                          HomePage(
+                            service: widget.service,
+                            active: _selected == FoodDestination.home,
+                            openHistory: _openHistory,
                           ),
-                          const _ComingSoonPage(
-                            title: 'Food',
-                            icon: CupertinoIcons.leaf_arrow_circlepath,
+                          FoodDiaryPage(
+                            service: widget.service,
+                            active: _selected == FoodDestination.food,
+                            openHistory: (date) =>
+                                _openHistory(date, HistoryFilter.food),
+                            addFood: () => _select(FoodDestination.add),
                           ),
                           ExcludeFocus(
                             excluding: _selected != FoodDestination.add,
